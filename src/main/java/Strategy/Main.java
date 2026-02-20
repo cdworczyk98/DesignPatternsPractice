@@ -28,7 +28,7 @@ public class Main {
         System.out.println("Total:    " + checkout.total(cart));
 
         checkout.setPricingStrategy(new BestOfStrategies(pricingStrategyList));
-        System.out.println("Strategy: " + checkout.strategyName());
+        System.out.println("\nStrategy: " + checkout.strategyName());
         System.out.println("Total:    " + checkout.total(cart));
     }
 }

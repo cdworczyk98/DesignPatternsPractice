@@ -1,8 +1,11 @@
 package Strategy;
 
+import lombok.Getter;
+
 import java.util.ArrayList;
 import java.util.List;
 
+@Getter
 public class Cart {
 
     private final List<Item> items = new ArrayList<>();
