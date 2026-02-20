@@ -1,6 +1,7 @@
 package Strategy;
 
-interface PricingStrategy {
+public interface PricingStrategy {
     double finalTotal(Cart cart);
+
     String name();
 }
