@@ -1,4 +1,4 @@
-package Strategy;
+package Strategy.DiscountStrategies;
 
 import lombok.AllArgsConstructor;
 

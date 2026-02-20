@@ -1,4 +1,4 @@
-package Strategy;
+package Strategy.DiscountStrategies;
 
 import java.util.Comparator;
 import java.util.List;

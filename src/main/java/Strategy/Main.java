@@ -1,9 +1,19 @@
 package Strategy;
 
+import Strategy.DiscountStrategies.*;
+import Strategy.SimplePaymentSystem.PaymentProcessor;
+
 import java.util.List;
 
 public class Main {
     static void main(String[] args) {
+        PaymentProcessor processor = new PaymentProcessor();
+
+        processor.processPayment("credit", 100);
+        processor.processPayment("paypal", 250);
+    }
+
+    public static void executeDiscountStrat() {
         Cart cart = new Cart();
         cart.add(new Item("Coffee", 3.50));
         cart.add(new Item("Sandwich", 6.00));
@@ -31,4 +41,5 @@ public class Main {
         System.out.println("\nStrategy: " + checkout.strategyName());
         System.out.println("Total:    " + checkout.total(cart));
     }
+
 }

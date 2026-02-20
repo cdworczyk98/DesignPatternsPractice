@@ -1,4 +1,4 @@
-package Strategy;
+package Strategy.DiscountStrategies;
 
 public class NoDiscountStrategy implements PricingStrategy {
     public double finalTotal(Cart cart) {
