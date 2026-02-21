@@ -1,16 +1,24 @@
 package Strategy;
 
 import Strategy.DiscountStrategies.*;
+import Strategy.SimplePaymentSystem.BitcoinPaymentStrategy;
+import Strategy.SimplePaymentSystem.CreditPaymentStrategy;
 import Strategy.SimplePaymentSystem.PaymentProcessor;
+import Strategy.SimplePaymentSystem.PaypalPaymentStrategy;
 
 import java.util.List;
 
 public class Main {
     static void main(String[] args) {
+        executePaymentStrat();
+    }
+
+    public static void executePaymentStrat() {
         PaymentProcessor processor = new PaymentProcessor();
 
-        processor.processPayment("credit", 100);
-        processor.processPayment("paypal", 250);
+        processor.processPayment(new CreditPaymentStrategy(), 100);
+        processor.processPayment(new PaypalPaymentStrategy(), 250);
+        processor.processPayment(new BitcoinPaymentStrategy(), 500);
     }
 
     public static void executeDiscountStrat() {
