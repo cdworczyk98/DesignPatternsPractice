@@ -1,5 +1,7 @@
 import Observer.WeatheStation.PhoneDisplay;
+import Observer.WeatheStation.StatisticsDisplay;
 import Observer.WeatheStation.WeatherStation;
+import Observer.WeatheStation.WebDashboard;
 import Strategy.DiscountStrategies.*;
 import Strategy.SimplePaymentSystem.BitcoinPaymentStrategy;
 import Strategy.SimplePaymentSystem.CreditPaymentStrategy;
@@ -15,10 +17,19 @@ public class Main {
 
     public static void executeObserver() {
         PhoneDisplay phone = new PhoneDisplay();
-        WeatherStation station = new WeatherStation(phone);
+        WebDashboard web = new WebDashboard();
+        StatisticsDisplay statistics = new StatisticsDisplay();
+        WeatherStation station = new WeatherStation();
+
+        station.registerObserver(phone);
+        station.registerObserver(web);
+        station.registerObserver(statistics);
 
         station.setMeasurements(21.5f, 45.0f);
         station.setMeasurements(19.0f, 60.0f);
+        station.setMeasurements(22.0f, 65.0f);
+        station.setMeasurements(10.0f, 30.0f);
+        station.setMeasurements(40.0f, 75.0f);
     }
 
     public static void executePaymentStrat() {

@@ -1,22 +1,40 @@
 package Observer.WeatheStation;
 
-public class WeatherStation {
+import java.util.ArrayList;
+import java.util.List;
+
+public class WeatherStation implements Subject {
 
     private float temperature;
     private float humidity;
 
-    private PhoneDisplay phoneDisplay; // tightly coupled: only one display
+    List<Observer> observers;
 
-    public WeatherStation(PhoneDisplay phoneDisplay) {
-        this.phoneDisplay = phoneDisplay;
+    public WeatherStation() {
+        this.observers = new ArrayList<>();
     }
 
     public void setMeasurements(float temperature, float humidity) {
         this.temperature = temperature;
         this.humidity = humidity;
 
-        // hard-coded "push" to a single display
-        phoneDisplay.update(temperature, humidity);
+        notifyObservers();
     }
 
+    @Override
+    public void registerObserver(Observer o) {
+        observers.add(o);
+    }
+
+    @Override
+    public void removeObserver(Observer o) {
+        observers.remove(o);
+    }
+
+    @Override
+    public void notifyObservers() {
+        for (Observer o : observers) {
+            o.update(temperature, humidity);
+        }
+    }
 }
