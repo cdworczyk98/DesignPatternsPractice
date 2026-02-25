@@ -1,5 +1,5 @@
-package Strategy;
-
+import Observer.PhoneDisplay;
+import Observer.WeatherStation;
 import Strategy.DiscountStrategies.*;
 import Strategy.SimplePaymentSystem.BitcoinPaymentStrategy;
 import Strategy.SimplePaymentSystem.CreditPaymentStrategy;
@@ -10,7 +10,15 @@ import java.util.List;
 
 public class Main {
     static void main(String[] args) {
-        executePaymentStrat();
+        executeObserver();
+    }
+
+    public static void executeObserver() {
+        PhoneDisplay phone = new PhoneDisplay();
+        WeatherStation station = new WeatherStation(phone);
+
+        station.setMeasurements(21.5f, 45.0f);
+        station.setMeasurements(19.0f, 60.0f);
     }
 
     public static void executePaymentStrat() {
