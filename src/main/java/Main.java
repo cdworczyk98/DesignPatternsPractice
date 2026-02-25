@@ -1,5 +1,5 @@
-import Observer.PhoneDisplay;
-import Observer.WeatherStation;
+import Observer.WeatheStation.PhoneDisplay;
+import Observer.WeatheStation.WeatherStation;
 import Strategy.DiscountStrategies.*;
 import Strategy.SimplePaymentSystem.BitcoinPaymentStrategy;
 import Strategy.SimplePaymentSystem.CreditPaymentStrategy;

@@ -1,4 +1,4 @@
-package Observer;
+package Observer.WeatheStation;
 
 public class WeatherStation {
 
