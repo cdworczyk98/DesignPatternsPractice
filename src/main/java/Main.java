@@ -1,3 +1,8 @@
+import Decorator.CoffeeShop.Beverage;
+import Decorator.CoffeeShop.Beverages.DarkRoast;
+import Decorator.CoffeeShop.Beverages.Espresso;
+import Decorator.CoffeeShop.Beverages.HouseBlend;
+import Decorator.CoffeeShop.Condiments.Milk;
 import Observer.WeatheStation.PhoneDisplay;
 import Observer.WeatheStation.StatisticsDisplay;
 import Observer.WeatheStation.WeatherStation;
@@ -12,7 +17,22 @@ import java.util.List;
 
 public class Main {
     static void main(String[] args) {
-        executeObserver();
+        executeCoffeeShop();
+    }
+
+    public static void executeCoffeeShop() {
+
+        Beverage b1 = new Espresso();
+        Beverage b2 = new DarkRoast();
+
+        Beverage b3 = new HouseBlend();
+        b3 = new Milk(b3);
+
+
+
+        System.out.println(b1.getDescription() + " $" + b1.cost());
+        System.out.println(b2.getDescription() + " $" + b2.cost());
+        System.out.println(b3.getDescription() + " $" + b3.cost());
     }
 
     public static void executeObserver() {
