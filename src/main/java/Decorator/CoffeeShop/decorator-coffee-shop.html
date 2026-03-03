@@ -427,6 +427,7 @@
     <button class="tab-btn" onclick="switchTab('pattern')">③ The Pattern</button>
     <button class="tab-btn" onclick="switchTab('refactor')">④ Refactored</button>
     <button class="tab-btn" onclick="switchTab('challenges')">⑤ Challenges</button>
+    <button class="tab-btn" onclick="switchTab('solutions')">⑥ Solutions</button>
   </nav>
 
   <!-- PANEL 1: Baseline -->
@@ -951,6 +952,421 @@ Whip.cost()
         <p>Spring's request wrapping in filter chains uses Decorator to add behaviour (auth, logging, compression) around the core HTTP request.</p>
       </div>
     </div>
+  </div>
+
+
+  <!-- PANEL 6: Solutions -->
+  <div id="panel-solutions" class="panel">
+    <div class="section-label">// Step 06</div>
+    <h2>Challenge Solutions</h2>
+    <p>Full working solutions for all six challenges. Try each one yourself first — then compare.</p>
+
+    <!-- Solution 1 -->
+    <div class="challenge easy">
+      <div class="challenge-meta">
+        <span class="diff diff-easy">Easy</span>
+        <span class="tag tag-green">Solution 1 — Add OatMilk Condiment</span>
+      </div>
+      <h3>One new file. Nothing else changes.</h3>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">OatMilk.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">OatMilk</span> <span class="kw">extends</span> <span class="cl">CondimentDecorator</span> {
+
+    <span class="kw">public</span> <span class="fn">OatMilk</span>(<span class="cl">Beverage</span> beverage) {
+        <span class="kw">super</span>(beverage);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDescription</span>() {
+        <span class="kw">return</span> beverage.<span class="fn">getDescription</span>() + <span class="st">", Oat Milk"</span>;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public double</span> <span class="fn">cost</span>() {
+        <span class="kw">return</span> beverage.<span class="fn">cost</span>() + <span class="nu">0.45</span>;
+    }
+}
+
+<span class="cm">// Verification in main():
+// Beverage b = new OatMilk(new Mocha(new Espresso()));
+// print(b);
+// → "Espresso, Mocha, Oat Milk  $2.74" ✓</span></code></pre>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-title">✓ Key Takeaway</div>
+      <p>Zero modifications to existing classes. This is Open/Closed in practice — the system was <em>open for extension</em> without being <em>opened for modification</em>.</p>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Solution 2 -->
+    <div class="challenge easy">
+      <div class="challenge-meta">
+        <span class="diff diff-easy">Easy</span>
+        <span class="tag tag-green">Solution 2 — Add Decaf Beverage</span>
+      </div>
+      <h3>New concrete component — decorators need no changes.</h3>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Decaf.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Decaf</span> <span class="kw">extends</span> <span class="cl">Beverage</span> {
+
+    <span class="kw">public</span> <span class="fn">Decaf</span>() {
+        description = <span class="st">"Decaf"</span>;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public double</span> <span class="fn">cost</span>() {
+        <span class="kw">return</span> <span class="nu">1.05</span>;
+    }
+}
+
+<span class="cm">// All existing decorators immediately work on Decaf:
+// Beverage b = new Whip(new Mocha(new Soy(new Decaf())));
+// → "Decaf, Soy, Mocha, Whip  $1.90" ✓</span></code></pre>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-title">✓ Key Takeaway</div>
+      <p>The decorators only depend on the <code>Beverage</code> abstract type — never on a specific subclass. <code>Decaf</code> slots right in because it satisfies that contract.</p>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Solution 3 -->
+    <div class="challenge medium">
+      <div class="challenge-meta">
+        <span class="diff diff-medium">Medium</span>
+        <span class="tag tag-yellow">Solution 3 — Size Multiplier Decorator</span>
+      </div>
+      <h3>Wrap the outermost layer — multiply the full total.</h3>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">SizeUpgrade.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">SizeUpgrade</span> <span class="kw">extends</span> <span class="cl">CondimentDecorator</span> {
+
+    <span class="kw">public enum</span> <span class="cl">Size</span> {
+        SMALL(<span class="nu">0.8</span>, <span class="st">"Small"</span>),
+        MEDIUM(<span class="nu">1.0</span>, <span class="st">"Medium"</span>),
+        LARGE(<span class="nu">1.3</span>, <span class="st">"Large"</span>);
+
+        <span class="kw">final double</span> multiplier;
+        <span class="kw">final</span> <span class="cl">String</span> label;
+
+        <span class="fn">Size</span>(<span class="kw">double</span> multiplier, <span class="cl">String</span> label) {
+            <span class="kw">this</span>.multiplier = multiplier;
+            <span class="kw">this</span>.label = label;
+        }
+    }
+
+    <span class="kw">private final</span> <span class="cl">Size</span> size;
+
+    <span class="kw">public</span> <span class="fn">SizeUpgrade</span>(<span class="cl">Beverage</span> beverage, <span class="cl">Size</span> size) {
+        <span class="kw">super</span>(beverage);
+        <span class="kw">this</span>.size = size;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDescription</span>() {
+        <span class="kw">return</span> size.label + <span class="st">" "</span> + beverage.<span class="fn">getDescription</span>();
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public double</span> <span class="fn">cost</span>() {
+        <span class="cm">// Multiplier applies to the TOTAL (base + all condiments)</span>
+        <span class="kw">return</span> beverage.<span class="fn">cost</span>() * size.multiplier;
+    }
+}
+
+<span class="cm">// Usage:
+// Beverage b = new SizeUpgrade(
+//     new Mocha(new Mocha(new DarkRoast())),
+//     SizeUpgrade.Size.LARGE
+// );
+// → "Large Dark Roast, Mocha, Mocha  $3.17" ✓  (1.49+0.30+0.30) * 1.3</span></code></pre>
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">💡 Order Matters Here</div>
+      <p><code>SizeUpgrade</code> should wrap the <em>outermost</em> decorator so it multiplies the complete subtotal. Placing it innermost would only scale the base beverage price — condiment costs would not be scaled, which is probably wrong for a "Large" order.</p>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Solution 4 -->
+    <div class="challenge medium">
+      <div class="challenge-meta">
+        <span class="diff diff-medium">Medium</span>
+        <span class="tag tag-yellow">Solution 4 — Duplicate Condiment Detection</span>
+      </div>
+      <h3>Walk the chain with instanceof to count occurrences.</h3>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">CondimentChainUtils.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">CondimentChainUtils</span> {
+
+    <span class="cm">/**
+     * Walks the decorator chain and counts how many times
+     * the given condiment type appears.
+     */</span>
+    <span class="kw">public static int</span> <span class="fn">countCondiment</span>(<span class="cl">Beverage</span> b, <span class="cl">Class</span>&lt;?&gt; type) {
+        <span class="kw">int</span> count = <span class="nu">0</span>;
+        <span class="cl">Beverage</span> current = b;
+
+        <span class="kw">while</span> (current <span class="kw">instanceof</span> <span class="cl">CondimentDecorator</span>) {
+            <span class="kw">if</span> (type.<span class="fn">isInstance</span>(current)) {
+                count++;
+            }
+            current = ((<span class="cl">CondimentDecorator</span>) current).beverage;
+        }
+        <span class="kw">return</span> count;
+    }
+
+    <span class="cm">/**
+     * Returns a validated beverage, warning if any condiment
+     * appears 3 or more times.
+     */</span>
+    <span class="kw">public static</span> <span class="cl">Beverage</span> <span class="fn">validate</span>(<span class="cl">Beverage</span> b) {
+        <span class="cl">Class</span>&lt;?&gt;[] condiments = {
+            <span class="cl">Mocha</span>.class, <span class="cl">Milk</span>.class, <span class="cl">Soy</span>.class, <span class="cl">Whip</span>.class
+        };
+        <span class="kw">for</span> (<span class="cl">Class</span>&lt;?&gt; c : condiments) {
+            <span class="kw">int</span> n = <span class="fn">countCondiment</span>(b, c);
+            <span class="kw">if</span> (n >= <span class="nu">3</span>) {
+                <span class="cl">System</span>.out.<span class="fn">printf</span>(
+                    <span class="st">"Warning: %s added %d times — are you sure?%n"</span>,
+                    c.<span class="fn">getSimpleName</span>(), n
+                );
+            }
+        }
+        <span class="kw">return</span> b;
+    }
+}
+
+<span class="cm">// Usage:
+// Beverage b = new Mocha(new Mocha(new Mocha(new Espresso())));
+// CondimentChainUtils.validate(b);
+// → Warning: Mocha added 3 times — are you sure?</span></code></pre>
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">💡 Design Decision</div>
+      <p>This logic lives in a <em>separate utility class</em> rather than inside <code>CondimentDecorator</code>. That keeps decorators focused on their single job (wrapping + pricing) and puts chain-inspection concerns elsewhere — a clean separation of responsibility.</p>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Solution 5 -->
+    <div class="challenge hard">
+      <div class="challenge-meta">
+        <span class="diff diff-hard">Hard</span>
+        <span class="tag tag-red">Solution 5 — Loyalty Points with Separate Interface</span>
+      </div>
+      <h3>Avoid polluting the base class — use a <code>Pointable</code> interface.</h3>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Pointable.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="cm">// Separate interface — Beverage does NOT need to change</span>
+<span class="kw">public interface</span> <span class="cl">Pointable</span> {
+    <span class="cm">/** 1 point per $0.50 spent, rounded down */</span>
+    <span class="kw">int</span> <span class="fn">getPoints</span>();
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">LoyaltyCard.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="cm">// Implements both Beverage (decorator) AND Pointable</span>
+<span class="kw">public class</span> <span class="cl">LoyaltyCard</span> <span class="kw">extends</span> <span class="cl">CondimentDecorator</span> <span class="kw">implements</span> <span class="cl">Pointable</span> {
+
+    <span class="kw">public</span> <span class="fn">LoyaltyCard</span>(<span class="cl">Beverage</span> beverage) {
+        <span class="kw">super</span>(beverage);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDescription</span>() {
+        <span class="kw">return</span> beverage.<span class="fn">getDescription</span>() + <span class="st">" [Loyalty]"</span>;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public double</span> <span class="fn">cost</span>() {
+        <span class="kw">return</span> beverage.<span class="fn">cost</span>(); <span class="cm">// no price change</span>
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public int</span> <span class="fn">getPoints</span>() {
+        <span class="kw">double</span> total = beverage.<span class="fn">cost</span>();
+        <span class="kw">int</span> basePoints = (<span class="kw">int</span>) (total / <span class="nu">0.50</span>); <span class="cm">// floor division</span>
+        <span class="kw">return</span> basePoints * <span class="nu">2</span>; <span class="cm">// double points on loyalty card</span>
+    }
+}
+
+<span class="cm">// Usage:
+// Beverage b = new LoyaltyCard(new Mocha(new Whip(new Espresso())));
+// System.out.println(b.getDescription() + " $" + b.cost());
+// → "Espresso, Whip, Mocha [Loyalty]  $2.64"
+//
+// if (b instanceof Pointable p) {
+//     System.out.println("Points earned: " + p.getPoints());
+//     → "Points earned: 10"  (2.64 / 0.50 = 5 base → ×2 = 10)
+// }</span></code></pre>
+    </div>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">⚡ Trade-off Discussion</div>
+      <p>
+        <strong style="color:var(--accent3)">Interface approach (used here):</strong> <code>Beverage</code> stays untouched. But callers must cast to <code>Pointable</code> to call <code>getPoints()</code> — less discoverable.<br><br>
+        <strong style="color:var(--accent)">Base class approach:</strong> Add <code>getPoints()</code> to <code>Beverage</code> with a default implementation. More discoverable, but forces every decorator to inherit or override it. Both are valid — the interface approach is cleaner when points are truly optional / not universal.
+      </p>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Solution 6 -->
+    <div class="challenge hard">
+      <div class="challenge-meta">
+        <span class="diff diff-hard">Hard</span>
+        <span class="tag tag-red">Solution 6 — Text Formatter Domain</span>
+      </div>
+      <h3>Same pattern, totally different domain. The structure is identical.</h3>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">TextComponent.java + PlainText.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="cm">// Component (equivalent to Beverage)</span>
+<span class="kw">public abstract class</span> <span class="cl">TextComponent</span> {
+    <span class="kw">public abstract</span> <span class="cl">String</span> <span class="fn">render</span>();
+}
+
+<span class="cm">// Concrete component (equivalent to Espresso)</span>
+<span class="kw">public class</span> <span class="cl">PlainText</span> <span class="kw">extends</span> <span class="cl">TextComponent</span> {
+    <span class="kw">private final</span> <span class="cl">String</span> text;
+
+    <span class="kw">public</span> <span class="fn">PlainText</span>(<span class="cl">String</span> text) {
+        <span class="kw">this</span>.text = text;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">render</span>() {
+        <span class="kw">return</span> text;
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">TextDecorator.java + all decorators</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="cm">// Abstract decorator (equivalent to CondimentDecorator)</span>
+<span class="kw">public abstract class</span> <span class="cl">TextDecorator</span> <span class="kw">extends</span> <span class="cl">TextComponent</span> {
+    <span class="kw">protected</span> <span class="cl">TextComponent</span> wrapped;
+
+    <span class="kw">public</span> <span class="fn">TextDecorator</span>(<span class="cl">TextComponent</span> wrapped) {
+        <span class="kw">this</span>.wrapped = wrapped;
+    }
+}
+
+<span class="cm">// Concrete decorators</span>
+<span class="kw">public class</span> <span class="cl">TrimDecorator</span> <span class="kw">extends</span> <span class="cl">TextDecorator</span> {
+    <span class="kw">public</span> <span class="fn">TrimDecorator</span>(<span class="cl">TextComponent</span> w) { <span class="kw">super</span>(w); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">render</span>() { <span class="kw">return</span> wrapped.<span class="fn">render</span>().<span class="fn">trim</span>(); }
+}
+
+<span class="kw">public class</span> <span class="cl">UpperCaseDecorator</span> <span class="kw">extends</span> <span class="cl">TextDecorator</span> {
+    <span class="kw">public</span> <span class="fn">UpperCaseDecorator</span>(<span class="cl">TextComponent</span> w) { <span class="kw">super</span>(w); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">render</span>() { <span class="kw">return</span> wrapped.<span class="fn">render</span>().<span class="fn">toUpperCase</span>(); }
+}
+
+<span class="kw">public class</span> <span class="cl">ItalicDecorator</span> <span class="kw">extends</span> <span class="cl">TextDecorator</span> {
+    <span class="kw">public</span> <span class="fn">ItalicDecorator</span>(<span class="cl">TextComponent</span> w) { <span class="kw">super</span>(w); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">render</span>() { <span class="kw">return</span> <span class="st">"&lt;i&gt;"</span> + wrapped.<span class="fn">render</span>() + <span class="st">"&lt;/i&gt;"</span>; }
+}
+
+<span class="kw">public class</span> <span class="cl">BoldDecorator</span> <span class="kw">extends</span> <span class="cl">TextDecorator</span> {
+    <span class="kw">public</span> <span class="fn">BoldDecorator</span>(<span class="cl">TextComponent</span> w) { <span class="kw">super</span>(w); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">render</span>() { <span class="kw">return</span> <span class="st">"&lt;b&gt;"</span> + wrapped.<span class="fn">render</span>() + <span class="st">"&lt;/b&gt;"</span>; }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Main.java — Full chain demo</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Main</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+
+        <span class="cl">TextComponent</span> t1 = <span class="kw">new</span> <span class="cl">BoldDecorator</span>(
+            <span class="kw">new</span> <span class="cl">ItalicDecorator</span>(
+                <span class="kw">new</span> <span class="cl">TrimDecorator</span>(
+                    <span class="kw">new</span> <span class="cl">PlainText</span>(<span class="st">"  hello world  "</span>)
+                )
+            )
+        );
+        <span class="cl">System</span>.out.<span class="fn">println</span>(t1.<span class="fn">render</span>());
+        <span class="cm">// → &lt;b&gt;&lt;i&gt;hello world&lt;/i&gt;&lt;/b&gt;  ✓</span>
+
+        <span class="cl">TextComponent</span> t2 = <span class="kw">new</span> <span class="cl">BoldDecorator</span>(
+            <span class="kw">new</span> <span class="cl">UpperCaseDecorator</span>(
+                <span class="kw">new</span> <span class="cl">TrimDecorator</span>(
+                    <span class="kw">new</span> <span class="cl">PlainText</span>(<span class="st">"  sale today  "</span>)
+                )
+            )
+        );
+        <span class="cl">System</span>.out.<span class="fn">println</span>(t2.<span class="fn">render</span>());
+        <span class="cm">// → &lt;b&gt;SALE TODAY&lt;/b&gt;  ✓</span>
+    }
+}</code></pre>
+    </div>
+
+    <div class="callout callout-key">
+      <div class="callout-title">🔗 The Java I/O Connection</div>
+      <p>
+        This text formatter is structurally <em>identical</em> to Java's I/O stream API:<br><br>
+        <code style="color:var(--accent2)">PlainText</code> ≅ <code style="color:var(--accent2)">FileInputStream</code><br>
+        <code style="color:var(--accent2)">TextDecorator</code> ≅ <code style="color:var(--accent2)">FilterInputStream</code><br>
+        <code style="color:var(--accent2)">TrimDecorator</code> ≅ <code style="color:var(--accent2)">BufferedInputStream</code><br>
+        <code style="color:var(--accent2)">BoldDecorator</code> ≅ <code style="color:var(--accent2)">DataInputStream</code><br><br>
+        When you write <code>new BufferedReader(new InputStreamReader(new FileInputStream("f")))</code> you are literally using the Decorator pattern from the JDK.
+      </p>
+    </div>
+
   </div>
 
 </div>

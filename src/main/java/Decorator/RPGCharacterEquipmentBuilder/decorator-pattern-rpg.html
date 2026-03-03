@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decorator Pattern — RPG Character Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060810;
+    --surface: #0d1021;
+    --surface2: #121630;
+    --border: #1d2444;
+    --accent: #00e5ff;
+    --accent2: #bf5af2;
+    --accent3: #ff453a;
+    --accent4: #32d74b;
+    --text: #c8d0f0;
+    --text-dim: #5a6490;
+    --code-bg: #080c1a;
+    --gold: #ffd60a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline effect */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,229,255,0.015) 2px,
+      rgba(0,229,255,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    padding: 52px 0 36px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+    position: relative;
+  }
+
+  .eyebrow {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 14px;
+    text-shadow: 0 0 12px rgba(0,229,255,0.6);
+  }
+
+  h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+  }
+
+  h1 .dim { color: var(--text-dim); }
+  h1 .hi  { color: var(--accent); text-shadow: 0 0 20px rgba(0,229,255,0.5); }
+  h1 .hi2 { color: var(--accent2); text-shadow: 0 0 20px rgba(191,90,242,0.5); }
+
+  .subtitle {
+    margin-top: 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.8;
+    max-width: 560px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 36px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tab-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 11px 18px;
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    position: relative;
+    transition: color 0.2s;
+  }
+
+  .tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    transform: scaleX(0);
+    transition: transform 0.2s;
+  }
+
+  .tab-btn.active { color: var(--accent); }
+  .tab-btn.active::after { transform: scaleX(1); }
+  .tab-btn:hover { color: var(--text); }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Typography */
+  .section-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  h3 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  p {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    line-height: 1.85;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  strong { color: var(--text); font-weight: 600; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: 0.4;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 620px) { .card-grid { grid-template-columns: 1fr; } }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 2px;
+    margin-right: 6px;
+    margin-bottom: 8px;
+  }
+
+  .tag-cyan   { background: rgba(0,229,255,0.1);   color: var(--accent);  border: 1px solid rgba(0,229,255,0.25); }
+  .tag-purple { background: rgba(191,90,242,0.1);  color: var(--accent2); border: 1px solid rgba(191,90,242,0.25); }
+  .tag-red    { background: rgba(255,69,58,0.1);   color: var(--accent3); border: 1px solid rgba(255,69,58,0.25); }
+  .tag-green  { background: rgba(50,215,75,0.1);   color: var(--accent4); border: 1px solid rgba(50,215,75,0.25); }
+  .tag-gold   { background: rgba(255,214,10,0.1);  color: var(--gold);    border: 1px solid rgba(255,214,10,0.25); }
+
+  /* Code blocks */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 14px 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    line-height: 1.75;
+  }
+
+  .code-header {
+    background: #0c1020;
+    border-bottom: 1px solid var(--border);
+    padding: 7px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .code-filename { font-size: 11px; color: var(--accent2); letter-spacing: 0.05em; }
+  .code-lang { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-dim); }
+
+  pre { padding: 18px; overflow-x: auto; scrollbar-width: thin; }
+  code { font-family: 'Share Tech Mono', monospace; }
+
+  /* Syntax */
+  .kw { color: #ff79c6; }
+  .cl { color: #8be9fd; }
+  .fn { color: #50fa7b; }
+  .st { color: #f1fa8c; }
+  .cm { color: #44475a; }
+  .nu { color: #bd93f9; }
+  .an { color: #ffb86c; }
+  .in { color: #ff79c6; font-style: italic; }
+
+  /* Callouts */
+  .callout {
+    border-left: 2px solid;
+    padding: 12px 16px;
+    border-radius: 0 4px 4px 0;
+    margin: 14px 0;
+  }
+
+  .callout-cyan   { border-color: var(--accent);  background: rgba(0,229,255,0.05); }
+  .callout-purple { border-color: var(--accent2); background: rgba(191,90,242,0.05); }
+  .callout-red    { border-color: var(--accent3); background: rgba(255,69,58,0.05); }
+  .callout-green  { border-color: var(--accent4); background: rgba(50,215,75,0.05); }
+  .callout-gold   { border-color: var(--gold);    background: rgba(255,214,10,0.05); }
+
+  .callout-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .callout-cyan   .callout-title { color: var(--accent); }
+  .callout-purple .callout-title { color: var(--accent2); }
+  .callout-red    .callout-title { color: var(--accent3); }
+  .callout-green  .callout-title { color: var(--accent4); }
+  .callout-gold   .callout-title { color: var(--gold); }
+  .callout p { margin: 0; }
+
+  /* Divider */
+  hr.div {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 28px 0;
+  }
+
+  /* Stat bar (visual) */
+  .stat-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .stat-label { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--text-dim); width: 90px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .stat-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .stat-fill { height: 100%; border-radius: 2px; }
+  .stat-val { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text); width: 40px; text-align: right; }
+
+  /* Challenge boxes */
+  .challenge {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .challenge::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 3px;
+  }
+
+  .challenge.easy::before   { background: var(--accent4); box-shadow: 0 0 8px var(--accent4); }
+  .challenge.medium::before { background: var(--gold);    box-shadow: 0 0 8px var(--gold); }
+  .challenge.hard::before   { background: var(--accent3); box-shadow: 0 0 8px var(--accent3); }
+  .challenge.boss::before   { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+
+  .challenge-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+
+  .diff {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 2px;
+  }
+
+  .diff-easy   { background: rgba(50,215,75,0.15);  color: var(--accent4); }
+  .diff-medium { background: rgba(255,214,10,0.15); color: var(--gold); }
+  .diff-hard   { background: rgba(255,69,58,0.15);  color: var(--accent3); }
+  .diff-boss   { background: rgba(191,90,242,0.15); color: var(--accent2); }
+
+  /* Diagram */
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 24px;
+    text-align: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    line-height: 2.2;
+    margin: 14px 0;
+  }
+
+  .dbox {
+    display: inline-block;
+    padding: 5px 16px;
+    border-radius: 3px;
+    margin: 2px 4px;
+  }
+
+  .dbox-cyan   { border: 1px solid var(--accent);  color: var(--accent);  background: rgba(0,229,255,0.07); }
+  .dbox-purple { border: 1px solid var(--accent2); color: var(--accent2); background: rgba(191,90,242,0.07); border-style: dashed; }
+  .dbox-green  { border: 1px solid var(--accent4); color: var(--accent4); background: rgba(50,215,75,0.07); }
+
+  /* Explanation box */
+  .explainer {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px 20px;
+    margin: 16px 0;
+  }
+
+  .explainer-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+    color: var(--accent2);
+  }
+
+  /* Reveal animation */
+  @keyframes glowIn {
+    from { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+    to   { opacity: 1; transform: translateY(0);    filter: blur(0); }
+  }
+  .glow-in { animation: glowIn 0.5s ease both; }
+
+  /* Numbered list */
+  ol.steps { list-style: none; counter-reset: s; }
+  ol.steps li {
+    counter-increment: s;
+    display: flex;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  ol.steps li:last-child { border-bottom: none; }
+  ol.steps li::before {
+    content: counter(s, decimal-leading-zero);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    text-shadow: 0 0 8px var(--accent);
+    min-width: 26px;
+    padding-top: 1px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="glow-in">
+    <div class="eyebrow">// Design Patterns — Java Workshop v2</div>
+    <h1><span class="dim">RPG</span> <span class="hi">Character</span><br><span class="hi2">Equipment</span> <span class="dim">Builder</span></h1>
+    <p class="subtitle">Intermediate baseline → class explosion → Decorator rescue. With 8 graded challenges and deep explanations.</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('baseline')">① Baseline</button>
+    <button class="tab-btn" onclick="switchTab('problem')">② The Problem</button>
+    <button class="tab-btn" onclick="switchTab('deep')">③ Deep Dive</button>
+    <button class="tab-btn" onclick="switchTab('refactor')">④ Refactored</button>
+    <button class="tab-btn" onclick="switchTab('challenges')">⑤ Challenges</button>
+    <button class="tab-btn" onclick="switchTab('solutions')">⑥ Solutions</button>
+  </nav>
+
+  <!-- ===================== PANEL 1: BASELINE ===================== -->
+  <div id="panel-baseline" class="panel active">
+    <div class="section-label">// Step 01</div>
+    <h2>The Baseline App</h2>
+    <p>An RPG character system with three warrior classes. Each character has a <strong>name</strong>, <strong>attack power</strong>, <strong>defense</strong>, and a <strong>describeSelf()</strong> method. Intermediate complexity — multiple fields, an interface, and a factory method already in place.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <span class="tag tag-cyan">Domain</span>
+        <h3>RPG Character Stats</h3>
+        <p>Warriors, Mages, and Rogues each have different base stats. Characters can describe themselves. This is working, well-structured code.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-purple">Current Design</span>
+        <h3>Interface + Abstract Class</h3>
+        <p>A <code>Character</code> interface, an <code>AbstractCharacter</code> base, and three concrete classes. A <code>CharacterFactory</code> handles creation. Feels solid — until new requirements hit.</p>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Character.java</span>
+        <span class="code-lang">Java — Interface</span>
+      </div>
+      <pre><code><span class="kw">public interface</span> <span class="cl">Character</span> {
+    <span class="cl">String</span>  <span class="fn">getName</span>();
+    <span class="kw">int</span>     <span class="fn">getAttack</span>();
+    <span class="kw">int</span>     <span class="fn">getDefense</span>();
+    <span class="kw">int</span>     <span class="fn">getSpeed</span>();
+    <span class="cl">String</span>  <span class="fn">describeSelf</span>();
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">AbstractCharacter.java</span>
+        <span class="code-lang">Java — Abstract Base</span>
+      </div>
+      <pre><code><span class="kw">public abstract class</span> <span class="cl">AbstractCharacter</span> <span class="kw">implements</span> <span class="cl">Character</span> {
+
+    <span class="kw">protected final</span> <span class="cl">String</span> name;
+    <span class="kw">protected int</span> attack;
+    <span class="kw">protected int</span> defense;
+    <span class="kw">protected int</span> speed;
+
+    <span class="kw">public</span> <span class="fn">AbstractCharacter</span>(<span class="cl">String</span> name, <span class="kw">int</span> attack, <span class="kw">int</span> defense, <span class="kw">int</span> speed) {
+        <span class="kw">this</span>.name    = name;
+        <span class="kw">this</span>.attack  = attack;
+        <span class="kw">this</span>.defense = defense;
+        <span class="kw">this</span>.speed   = speed;
+    }
+
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getName</span>()    { <span class="kw">return</span> name; }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getAttack</span>()  { <span class="kw">return</span> attack; }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getDefense</span>() { <span class="kw">return</span> defense; }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getSpeed</span>()   { <span class="kw">return</span> speed; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> <span class="cl">String</span>.<span class="fn">format</span>(
+            <span class="st">"[%s] ATK:%d  DEF:%d  SPD:%d"</span>,
+            name, attack, defense, speed
+        );
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Warrior.java / Mage.java / Rogue.java</span>
+        <span class="code-lang">Java — Concrete Classes</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Warrior</span> <span class="kw">extends</span> <span class="cl">AbstractCharacter</span> {
+    <span class="kw">public</span> <span class="fn">Warrior</span>(<span class="cl">String</span> name) {
+        <span class="kw">super</span>(name, <span class="cm">/*atk*/</span><span class="nu">18</span>, <span class="cm">/*def*/</span><span class="nu">15</span>, <span class="cm">/*spd*/</span><span class="nu">8</span>);
+    }
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> <span class="st">"⚔  Warrior  | "</span> + <span class="kw">super</span>.<span class="fn">describeSelf</span>();
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">Mage</span> <span class="kw">extends</span> <span class="cl">AbstractCharacter</span> {
+    <span class="kw">public</span> <span class="fn">Mage</span>(<span class="cl">String</span> name) {
+        <span class="kw">super</span>(name, <span class="nu">22</span>, <span class="nu">6</span>, <span class="nu">12</span>);
+    }
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> <span class="st">"✦  Mage     | "</span> + <span class="kw">super</span>.<span class="fn">describeSelf</span>();
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">Rogue</span> <span class="kw">extends</span> <span class="cl">AbstractCharacter</span> {
+    <span class="kw">public</span> <span class="fn">Rogue</span>(<span class="cl">String</span> name) {
+        <span class="kw">super</span>(name, <span class="nu">14</span>, <span class="nu">9</span>, <span class="nu">20</span>);
+    }
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> <span class="st">"◈  Rogue    | "</span> + <span class="kw">super</span>.<span class="fn">describeSelf</span>();
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">CharacterFactory.java + Main.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">CharacterFactory</span> {
+    <span class="kw">public static</span> <span class="cl">Character</span> <span class="fn">create</span>(<span class="cl">String</span> type, <span class="cl">String</span> name) {
+        <span class="kw">return switch</span> (type.<span class="fn">toLowerCase</span>()) {
+            <span class="kw">case</span> <span class="st">"warrior"</span> -> <span class="kw">new</span> <span class="cl">Warrior</span>(name);
+            <span class="kw">case</span> <span class="st">"mage"</span>    -> <span class="kw">new</span> <span class="cl">Mage</span>(name);
+            <span class="kw">case</span> <span class="st">"rogue"</span>   -> <span class="kw">new</span> <span class="cl">Rogue</span>(name);
+            <span class="kw">default</span>        -> <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Unknown type"</span>);
+        };
+    }
+}
+
+<span class="cm">// Main.java</span>
+<span class="kw">public class</span> <span class="cl">Main</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+        <span class="cl">Character</span> c1 = <span class="cl">CharacterFactory</span>.<span class="fn">create</span>(<span class="st">"warrior"</span>, <span class="st">"Thor"</span>);
+        <span class="cl">Character</span> c2 = <span class="cl">CharacterFactory</span>.<span class="fn">create</span>(<span class="st">"mage"</span>,    <span class="st">"Lyra"</span>);
+        <span class="cl">Character</span> c3 = <span class="cl">CharacterFactory</span>.<span class="fn">create</span>(<span class="st">"rogue"</span>,   <span class="st">"Zane"</span>);
+
+        <span class="cl">System</span>.out.<span class="fn">println</span>(c1.<span class="fn">describeSelf</span>());
+        <span class="cl">System</span>.out.<span class="fn">println</span>(c2.<span class="fn">describeSelf</span>());
+        <span class="cl">System</span>.out.<span class="fn">println</span>(c3.<span class="fn">describeSelf</span>());
+    }
+}
+<span class="cm">// Output:
+// ⚔  Warrior  | [Thor] ATK:18  DEF:15  SPD:8
+// ✦  Mage     | [Lyra] ATK:22  DEF:6   SPD:12
+// ◈  Rogue    | [Zane] ATK:14  DEF:9   SPD:20</span></code></pre>
+    </div>
+
+    <div class="card">
+      <div class="explainer-title">Character Base Stats (Visual)</div>
+      <div class="stat-row"><div class="stat-label">Warrior ATK</div><div class="stat-bar"><div class="stat-fill" style="width:72%;background:var(--accent3)"></div></div><div class="stat-val">18</div></div>
+      <div class="stat-row"><div class="stat-label">Mage ATK</div><div class="stat-bar"><div class="stat-fill" style="width:88%;background:var(--accent2)"></div></div><div class="stat-val">22</div></div>
+      <div class="stat-row"><div class="stat-label">Rogue ATK</div><div class="stat-bar"><div class="stat-fill" style="width:56%;background:var(--accent4)"></div></div><div class="stat-val">14</div></div>
+      <div class="stat-row" style="margin-top:12px"><div class="stat-label">Warrior SPD</div><div class="stat-bar"><div class="stat-fill" style="width:32%;background:var(--accent3)"></div></div><div class="stat-val">8</div></div>
+      <div class="stat-row"><div class="stat-label">Mage SPD</div><div class="stat-bar"><div class="stat-fill" style="width:48%;background:var(--accent2)"></div></div><div class="stat-val">12</div></div>
+      <div class="stat-row"><div class="stat-label">Rogue SPD</div><div class="stat-bar"><div class="stat-fill" style="width:80%;background:var(--accent4)"></div></div><div class="stat-val">20</div></div>
+    </div>
+
+    <div class="callout callout-green">
+      <div class="callout-title">✓ This Is Good Code</div>
+      <p>Proper abstraction, a factory, clean stat layout. This is how you'd write it before needing a pattern. Click ② to see what breaks it.</p>
+    </div>
+  </div>
+
+  <!-- ===================== PANEL 2: PROBLEM ===================== -->
+  <div id="panel-problem" class="panel">
+    <div class="section-label">// Step 02</div>
+    <h2>New Requirements That Break It</h2>
+    <p>The game design team adds an equipment system. Characters can now equip items — <strong>Sword</strong>, <strong>Shield</strong>, <strong>FireRune</strong>, <strong>ShadowCloak</strong>, <strong>SpeedBoots</strong> — each modifying stats and the description. A character can equip multiple items.</p>
+
+    <div class="callout callout-red">
+      <div class="callout-title">⚠ New Requirement</div>
+      <p>Equipment stacks on characters dynamically. "Thor with a Sword and Shield" has different stats than "Thor with a FireRune". Items can be equipped in any combination. New items will be added every sprint.</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-red">Anti-Pattern</span>
+      <h3>Naive Subclass Approach</h3>
+      <p>Create a subclass per combination. With 3 classes × 5 items × stacking = <strong style="color:var(--accent3)">hundreds of classes.</strong> This gets worse with every new item added.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">❌ Class explosion — don't do this</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">WarriorWithSword</span>            <span class="kw">extends</span> <span class="cl">Warrior</span> { ... }
+<span class="kw">public class</span> <span class="cl">WarriorWithSwordAndShield</span>   <span class="kw">extends</span> <span class="cl">Warrior</span> { ... }
+<span class="kw">public class</span> <span class="cl">WarriorWithFireRuneAndSword</span> <span class="kw">extends</span> <span class="cl">Warrior</span> { ... }
+<span class="kw">public class</span> <span class="cl">MageWithFireRune</span>            <span class="kw">extends</span> <span class="cl">Mage</span>    { ... }
+<span class="cm">// ... 200+ more ...</span></code></pre>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-gold">Slightly Better, Still Bad</span>
+      <h3>Equipment List in AbstractCharacter</h3>
+      <p>Store a <code>List&lt;String&gt;</code> of equipment names and bake cost/stat logic into the base class via <code>if</code> chains. Works for 3 items; collapses for 20.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">❌ AbstractCharacter.java — flag-based anti-pattern</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public abstract class</span> <span class="cl">AbstractCharacter</span> <span class="kw">implements</span> <span class="cl">Character</span> {
+    <span class="kw">private boolean</span> hasSword, hasShield, hasFireRune, hasShadowCloak;
+    <span class="cm">// ↑ grows forever with every new item</span>
+
+    <span class="kw">public int</span> <span class="fn">getAttack</span>() {
+        <span class="kw">int</span> bonus = <span class="nu">0</span>;
+        <span class="kw">if</span> (hasSword)    bonus += <span class="nu">8</span>;
+        <span class="kw">if</span> (hasFireRune) bonus += <span class="nu">12</span>;
+        <span class="cm">// add a new item? edit THIS method.</span>
+        <span class="kw">return</span> attack + bonus;
+    }
+
+    <span class="cm">// Problems:
+    // 1. Add SpeedBoots? Edit 4+ methods in this class.
+    // 2. "Double Sword"? No support.
+    // 3. A Mage equipping SpeedBoots overrides Warrior logic too.
+    // 4. Violates Open/Closed. Violates Single Responsibility.
+    // 5. Impossible to unit test items in isolation.</span>
+}</code></pre>
+    </div>
+
+    <hr class="div">
+
+    <div class="card-grid">
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Open/Closed Principle</h3>
+        <p>Every new equipment item requires opening and editing <code>AbstractCharacter</code>. A class should be <em>closed for modification</em> once stable.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Single Responsibility</h3>
+        <p>The base class now owns base stats, class identity, AND the stat effects of every piece of equipment ever created. Three jobs. Three reasons to change.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Testability</h3>
+        <p>You can't unit test <code>Sword</code>'s stat bonus in isolation — it's buried inside a method on <code>AbstractCharacter</code> behind a boolean flag.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Scalability</h3>
+        <p>A real RPG might have 50+ items. Each one adds more booleans, more <code>if</code> branches, more methods to edit. The class becomes unmaintainable.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-cyan">
+      <div class="callout-title">💡 The Key Insight</div>
+      <p>Equipment is <strong>behaviour added at runtime</strong>, not at compile time. We need a way to wrap a character in layers of equipment — each layer knowing only about the layer beneath it. That's exactly what Decorator does.</p>
+    </div>
+  </div>
+
+  <!-- ===================== PANEL 3: DEEP DIVE ===================== -->
+  <div id="panel-deep" class="panel">
+    <div class="section-label">// Step 03</div>
+    <h2>Deep Dive — How Decorator Works</h2>
+    <p>This panel goes beyond the surface. We'll look at the structural mechanics, the mental model, where people go wrong, and the limits of the pattern.</p>
+
+    <div class="explainer">
+      <div class="explainer-title">The Two Relationships</div>
+      <p>Every decorator has exactly two relationships with the component type. Both are essential:</p>
+      <div class="card-grid" style="margin-top:10px">
+        <div class="card">
+          <span class="tag tag-cyan">IS-A</span>
+          <h3>Inheritance (Type)</h3>
+          <p>The decorator <em>extends</em> or <em>implements</em> the same type as the component it wraps. This means you can pass a decorated object anywhere an undecorated one is expected. The client sees a <code>Character</code> — it never knows if it's wrapped or not.</p>
+        </div>
+        <div class="card">
+          <span class="tag tag-purple">HAS-A</span>
+          <h3>Composition (Behaviour)</h3>
+          <p>The decorator <em>holds a reference</em> to a wrapped component. It delegates all calls to the inner object, adding its own behaviour before or after the delegation. This is the actual mechanism of extension.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="diagram">
+      <div style="color:var(--text-dim); font-size:10px; margin-bottom:8px">STRUCTURE</div>
+      <div><span class="dbox dbox-cyan">«interface» Character</span></div>
+      <div style="color:var(--text-dim); margin: 2px 0;">▲&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▲</div>
+      <div>
+        <span class="dbox dbox-green">Warrior / Mage / Rogue</span>
+        &nbsp;&nbsp;
+        <span class="dbox dbox-purple">EquipmentDecorator</span>
+      </div>
+      <div style="color:var(--text-dim); margin: 2px 0; margin-left: 240px;">▲</div>
+      <div style="margin-left:100px">
+        <span class="dbox dbox-green">Sword</span>
+        <span class="dbox dbox-green">Shield</span>
+        <span class="dbox dbox-green">FireRune</span>
+        <span class="dbox dbox-green">SpeedBoots</span>
+      </div>
+      <div style="margin-top:14px; font-size:10px; color:var(--text-dim)">
+        EquipmentDecorator holds a <strong style="color:var(--accent)">Character</strong> reference (HAS-A) and IS-A Character
+      </div>
+    </div>
+
+    <div class="explainer">
+      <div class="explainer-title">The Delegation Chain — Step by Step</div>
+      <p>When you call <code>.getAttack()</code> on a wrapped character, execution flows inward through each decorator:</p>
+      <div class="code-block" style="margin-top:10px">
+        <div class="code-header"><span class="code-filename">Unwinding the call stack</span><span class="code-lang">Pseudocode</span></div>
+        <pre><code><span class="cm">// Build: Thor equipped with Sword, then FireRune on top</span>
+<span class="cl">Character</span> thor = <span class="kw">new</span> <span class="cl">FireRune</span>(<span class="kw">new</span> <span class="cl">Sword</span>(<span class="kw">new</span> <span class="cl">Warrior</span>(<span class="st">"Thor"</span>)));
+
+<span class="cm">// thor.getAttack() call chain:</span>
+FireRune.<span class="fn">getAttack</span>()
+  → <span class="nu">12</span> + Sword.<span class="fn">getAttack</span>()
+        → <span class="nu">8</span> + Warrior.<span class="fn">getAttack</span>()
+                → <span class="nu">18</span>      <span class="cm">← base stat</span>
+        = <span class="nu">26</span>
+  = <span class="nu">38</span>  <span class="cm">← final result (18 base + 8 sword + 12 fire rune)</span>
+
+<span class="cm">// thor.describeSelf() chain builds a string outward:</span>
+FireRune.<span class="fn">describeSelf</span>()
+  → <span class="st">"[FireRune] "</span> + Sword.<span class="fn">describeSelf</span>()
+        → <span class="st">"[Sword] "</span> + Warrior.<span class="fn">describeSelf</span>()
+                → <span class="st">"⚔  Warrior | [Thor] ATK:38 DEF:15 SPD:8"</span></code></pre>
+      </div>
+    </div>
+
+    <div class="explainer">
+      <div class="explainer-title">Why "Before or After" Matters</div>
+      <p>A decorator can add behaviour <em>before</em> delegating, <em>after</em> delegating, or <em>both</em>. The order changes the result — this is intentional power, not a bug:</p>
+      <div class="code-block" style="margin-top:10px">
+        <div class="code-header"><span class="code-filename">Before vs After delegation</span><span class="code-lang">Java</span></div>
+        <pre><code><span class="cm">// Adding BEFORE: prefix the description</span>
+<span class="an">@Override</span>
+<span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+    <span class="kw">return</span> <span class="st">"[Sword +8ATK] "</span> + character.<span class="fn">describeSelf</span>();
+    <span class="cm">// → "[Sword +8ATK] ⚔ Warrior | [Thor]..."</span>
+}
+
+<span class="cm">// Adding AFTER: append the description</span>
+<span class="an">@Override</span>
+<span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+    <span class="kw">return</span> character.<span class="fn">describeSelf</span>() + <span class="st">" + [Sword +8ATK]"</span>;
+    <span class="cm">// → "⚔ Warrior | [Thor]... + [Sword +8ATK]"</span>
+}
+
+<span class="cm">// Both: wrap with a logging call around delegation</span>
+<span class="an">@Override</span>
+<span class="kw">public int</span> <span class="fn">getAttack</span>() {
+    <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Sword: applying +8 attack bonus"</span>); <span class="cm">// before</span>
+    <span class="kw">int</span> result = character.<span class="fn">getAttack</span>() + <span class="nu">8</span>;
+    <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Sword: result = "</span> + result); <span class="cm">// after</span>
+    <span class="kw">return</span> result;
+}</code></pre>
+      </div>
+    </div>
+
+    <div class="explainer">
+      <div class="explainer-title">Common Mistakes to Avoid</div>
+      <ol class="steps">
+        <li>
+          <div>
+            <h3 style="color:var(--accent3)">Storing mutable state in decorators</h3>
+            <p>Decorators should be stateless transformations. If you find yourself adding <code>private int charges = 3</code> to a decorator, you may need a different pattern (State or Strategy). Mutable decorator state causes confusion when the same decorator wraps different objects.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3 style="color:var(--accent3)">Using concrete types instead of the interface</h3>
+            <p>The decorator's wrapped field must be typed as the <em>interface</em> (<code>Character character</code>), not a concrete class (<code>Warrior character</code>). Using a concrete type defeats the whole purpose — it means your decorator only works on one class.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3 style="color:var(--accent3)">Forgetting to delegate</h3>
+            <p>Every method that the decorator doesn't explicitly modify must still delegate to the wrapped object. Forgetting to call <code>character.getSpeed()</code> in a <code>Sword</code> decorator means speed returns 0 — a silent bug that's hard to find.</p>
+          </div>
+        </li>
+        <li>
+          <div>
+            <h3 style="color:var(--accent3)">Applying Decorator when Builder fits better</h3>
+            <p>If the configuration is known at creation time and doesn't change, the Builder pattern is cleaner. Decorator shines for <em>runtime</em> additions. Ask yourself: is this equipment decided when the character is first built, or dynamically swapped during gameplay?</p>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="callout callout-gold">
+      <div class="callout-title">📐 Design Principle: Favour Composition Over Inheritance</div>
+      <p>Every OOP textbook says it. Decorator shows you <em>why</em>. Inheritance is a compile-time, static relationship. Composition is a runtime, dynamic relationship. Equipment on an RPG character is inherently dynamic — it changes as the player plays. Decorator maps perfectly to that reality.</p>
+    </div>
+  </div>
+
+  <!-- ===================== PANEL 4: REFACTOR ===================== -->
+  <div id="panel-refactor" class="panel">
+    <div class="section-label">// Step 04</div>
+    <h2>Refactored with Decorator Pattern</h2>
+    <p>The <code>Character</code> interface stays untouched. We add one abstract decorator and one class per equipment item. The existing <code>Warrior</code>, <code>Mage</code>, <code>Rogue</code> classes are <strong>not modified</strong>.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">EquipmentDecorator.java — Abstract Decorator</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="cm">/**
+ * IS-A Character (implements interface) so it can stand in for any Character.
+ * HAS-A Character (holds reference) so it can delegate and extend behaviour.
+ */</span>
+<span class="kw">public abstract class</span> <span class="cl">EquipmentDecorator</span> <span class="kw">implements</span> <span class="cl">Character</span> {
+
+    <span class="kw">protected final</span> <span class="cl">Character</span> character; <span class="cm">// ← typed as interface, not concrete class!</span>
+
+    <span class="kw">public</span> <span class="fn">EquipmentDecorator</span>(<span class="cl">Character</span> character) {
+        <span class="kw">this</span>.character = character;
+    }
+
+    <span class="cm">// Default delegation — subclasses override only what they modify</span>
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getName</span>()    { <span class="kw">return</span> character.<span class="fn">getName</span>(); }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getAttack</span>()  { <span class="kw">return</span> character.<span class="fn">getAttack</span>(); }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getDefense</span>() { <span class="kw">return</span> character.<span class="fn">getDefense</span>(); }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getSpeed</span>()   { <span class="kw">return</span> character.<span class="fn">getSpeed</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() { <span class="kw">return</span> character.<span class="fn">describeSelf</span>(); }
+}</code></pre>
+    </div>
+
+    <div class="callout callout-purple">
+      <div class="callout-title">🔑 The Default Delegation Pattern</div>
+      <p>By providing default delegation in the abstract class, concrete decorators only need to override the methods they actually change. <code>Sword</code> overrides <code>getAttack()</code> and <code>describeSelf()</code> — it doesn't touch <code>getDefense()</code> or <code>getSpeed()</code> at all. Less boilerplate, fewer bugs.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Sword.java / Shield.java / FireRune.java</span>
+        <span class="code-lang">Java — Concrete Decorators</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Sword</span> <span class="kw">extends</span> <span class="cl">EquipmentDecorator</span> {
+    <span class="kw">public</span> <span class="fn">Sword</span>(<span class="cl">Character</span> c) { <span class="kw">super</span>(c); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public int</span> <span class="fn">getAttack</span>() { <span class="kw">return</span> character.<span class="fn">getAttack</span>() + <span class="nu">8</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> character.<span class="fn">describeSelf</span>() + <span class="st">" + [Sword +8ATK]"</span>;
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">Shield</span> <span class="kw">extends</span> <span class="cl">EquipmentDecorator</span> {
+    <span class="kw">public</span> <span class="fn">Shield</span>(<span class="cl">Character</span> c) { <span class="kw">super</span>(c); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public int</span> <span class="fn">getDefense</span>() { <span class="kw">return</span> character.<span class="fn">getDefense</span>() + <span class="nu">10</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> character.<span class="fn">describeSelf</span>() + <span class="st">" + [Shield +10DEF]"</span>;
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">FireRune</span> <span class="kw">extends</span> <span class="cl">EquipmentDecorator</span> {
+    <span class="kw">public</span> <span class="fn">FireRune</span>(<span class="cl">Character</span> c) { <span class="kw">super</span>(c); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public int</span> <span class="fn">getAttack</span>() { <span class="kw">return</span> character.<span class="fn">getAttack</span>() + <span class="nu">12</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> character.<span class="fn">describeSelf</span>() + <span class="st">" + [FireRune +12ATK]"</span>;
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">ShadowCloak.java / SpeedBoots.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">ShadowCloak</span> <span class="kw">extends</span> <span class="cl">EquipmentDecorator</span> {
+    <span class="kw">public</span> <span class="fn">ShadowCloak</span>(<span class="cl">Character</span> c) { <span class="kw">super</span>(c); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public int</span> <span class="fn">getDefense</span>() { <span class="kw">return</span> character.<span class="fn">getDefense</span>() + <span class="nu">5</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public int</span> <span class="fn">getSpeed</span>() { <span class="kw">return</span> character.<span class="fn">getSpeed</span>() + <span class="nu">7</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> character.<span class="fn">describeSelf</span>() + <span class="st">" + [ShadowCloak +5DEF +7SPD]"</span>;
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">SpeedBoots</span> <span class="kw">extends</span> <span class="cl">EquipmentDecorator</span> {
+    <span class="kw">public</span> <span class="fn">SpeedBoots</span>(<span class="cl">Character</span> c) { <span class="kw">super</span>(c); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public int</span> <span class="fn">getSpeed</span>() { <span class="kw">return</span> character.<span class="fn">getSpeed</span>() + <span class="nu">15</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> character.<span class="fn">describeSelf</span>() + <span class="st">" + [SpeedBoots +15SPD]"</span>;
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Main.java — Refactored usage</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Main</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+
+        <span class="cm">// Plain warrior</span>
+        <span class="cl">Character</span> thor = <span class="kw">new</span> <span class="cl">Warrior</span>(<span class="st">"Thor"</span>);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(thor.<span class="fn">describeSelf</span>());
+
+        <span class="cm">// Thor with Sword + Shield</span>
+        thor = <span class="kw">new</span> <span class="cl">Shield</span>(<span class="kw">new</span> <span class="cl">Sword</span>(thor));
+        <span class="cl">System</span>.out.<span class="fn">println</span>(thor.<span class="fn">describeSelf</span>());
+
+        <span class="cm">// Lyra (Mage) with double FireRune + SpeedBoots</span>
+        <span class="cl">Character</span> lyra = <span class="kw">new</span> <span class="cl">SpeedBoots</span>(
+            <span class="kw">new</span> <span class="cl">FireRune</span>(
+                <span class="kw">new</span> <span class="cl">FireRune</span>(
+                    <span class="kw">new</span> <span class="cl">Mage</span>(<span class="st">"Lyra"</span>)
+                )
+            )
+        );
+        <span class="cl">System</span>.out.<span class="fn">println</span>(lyra.<span class="fn">describeSelf</span>());
+
+        <span class="cm">// Zane (Rogue) full stealth build</span>
+        <span class="cl">Character</span> zane = <span class="kw">new</span> <span class="cl">SpeedBoots</span>(<span class="kw">new</span> <span class="cl">ShadowCloak</span>(<span class="kw">new</span> <span class="cl">Rogue</span>(<span class="st">"Zane"</span>)));
+        <span class="cl">System</span>.out.<span class="fn">println</span>(zane.<span class="fn">describeSelf</span>());
+    }
+}
+<span class="cm">// Output:
+// ⚔  Warrior | [Thor] ATK:18 DEF:15 SPD:8
+// ⚔  Warrior | [Thor] ATK:26 DEF:25 SPD:8  + [Sword +8ATK] + [Shield +10DEF]
+// ✦  Mage    | [Lyra] ATK:46 DEF:6  SPD:27 + [FireRune +12ATK] + [FireRune +12ATK] + [SpeedBoots +15SPD]
+// ◈  Rogue   | [Zane] ATK:14 DEF:14 SPD:42 + [ShadowCloak +5DEF +7SPD] + [SpeedBoots +15SPD]</span></code></pre>
+    </div>
+
+    <div class="card">
+      <div class="explainer-title">Stats After Equipment (Visual)</div>
+      <div class="stat-row"><div class="stat-label">Thor + gear</div><div class="stat-bar"><div class="stat-fill" style="width:52%;background:var(--accent3)"></div></div><div class="stat-val">ATK 26</div></div>
+      <div class="stat-row"><div class="stat-label">Lyra dbl fire</div><div class="stat-bar"><div class="stat-fill" style="width:92%;background:var(--accent2)"></div></div><div class="stat-val">ATK 46</div></div>
+      <div class="stat-row"><div class="stat-label">Zane stealth</div><div class="stat-bar"><div class="stat-fill" style="width:84%;background:var(--accent4)"></div></div><div class="stat-val">SPD 42</div></div>
+    </div>
+  </div>
+
+  <!-- ===================== PANEL 5: CHALLENGES ===================== -->
+  <div id="panel-challenges" class="panel">
+    <div class="section-label">// Step 05</div>
+    <h2>Practice Challenges</h2>
+    <p>Eight challenges, graded from Recruit to Boss. All build on the refactored codebase from panel ④. Try each before checking Solutions.</p>
+
+    <div class="challenge easy">
+      <div class="challenge-meta"><span class="diff diff-easy">Recruit</span><span class="tag tag-green">Challenge 1</span></div>
+      <h3>Add a New Equipment: HolyArmour</h3>
+      <p>Create a <code>HolyArmour</code> decorator that adds <strong>+18 DEF</strong>. Equip it on a Warrior named "Paladin" and confirm total DEF = 33. Then add a Shield on top and confirm DEF = 43. You should create exactly one new file.</p>
+      <div class="callout callout-green" style="margin-top:10px"><div class="callout-title">Goal</div><p>Confirm you understand the basic decorator structure. If you touch any existing file, something is wrong.</p></div>
+    </div>
+
+    <div class="challenge easy">
+      <div class="challenge-meta"><span class="diff diff-easy">Recruit</span><span class="tag tag-green">Challenge 2</span></div>
+      <h3>Add a New Character: Paladin</h3>
+      <p>Add a <code>Paladin</code> class (ATK:16, DEF:20, SPD:6) that works with all existing equipment decorators without any changes to the decorator classes. Verify it with at least two equipment combinations.</p>
+      <div class="callout callout-green" style="margin-top:10px"><div class="callout-title">Goal</div><p>Demonstrate the other axis of Open/Closed — adding a new component without modifying decorators.</p></div>
+    </div>
+
+    <div class="challenge medium">
+      <div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Challenge 3</span></div>
+      <h3>Stat Inspector Utility</h3>
+      <p>Write a static <code>CharacterInspector.listEquipment(Character c)</code> method that walks the decorator chain and returns a <code>List&lt;String&gt;</code> of all equipment names applied (e.g. <code>["Sword", "FireRune", "Shield"]</code>). Use <code>instanceof</code> to inspect the chain. Order should be outermost-first.</p>
+      <div class="callout callout-cyan" style="margin-top:10px"><div class="callout-title">Think About</div><p>The chain only unwraps if you cast to <code>EquipmentDecorator</code> and access its <code>character</code> field. What visibility does that field need? Does making it accessible break encapsulation?</p></div>
+    </div>
+
+    <div class="challenge medium">
+      <div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Challenge 4</span></div>
+      <h3>Cursed Equipment</h3>
+      <p>Create a <code>CursedBlade</code> decorator. It gives <strong>+20 ATK</strong> but <strong>-8 DEF</strong>. Wrap a Warrior with it and verify the stats. Then think about: what happens if DEF goes negative? Add a guard in the decorator so DEF never falls below 0.</p>
+      <div class="callout callout-cyan" style="margin-top:10px"><div class="callout-title">Deep Question</div><p>Should the 0-floor guard live in the decorator, in <code>AbstractCharacter</code>, or in a separate validator? Justify your answer in a code comment.</p></div>
+    </div>
+
+    <div class="challenge medium">
+      <div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Challenge 5</span></div>
+      <h3>Unique Equipment Enforcement</h3>
+      <p>Some items (like boots) shouldn't be equipped twice. Write a utility <code>EquipmentValidator.equip(Character base, EquipmentDecorator item)</code> that checks if the item type is already in the chain before wrapping. If it is, throw an <code>IllegalStateException</code> with a descriptive message.</p>
+      <div class="callout callout-cyan" style="margin-top:10px"><div class="callout-title">Think About</div><p>This adds business rules to the wrapping process. Is it better as a utility method, a factory, or built into the decorators themselves?</p></div>
+    </div>
+
+    <div class="challenge hard">
+      <div class="challenge-meta"><span class="diff diff-hard">Elite</span><span class="tag tag-red">Challenge 6</span></div>
+      <h3>Set Bonus Mechanic</h3>
+      <p>Implement a "Shadow Set" bonus: if a character has <em>both</em> <code>ShadowCloak</code> AND <code>SpeedBoots</code>, apply an additional +10 SPD set bonus. Create a <code>ShadowSetBonus</code> decorator that detects this condition by walking the chain and adds the bonus only when both are present.</p>
+      <div class="callout callout-red" style="margin-top:10px"><div class="callout-title">Watch Out</div><p>The bonus decorator must check the chain it's wrapping — not add itself blindly. Think about when the check should happen: at construction time or at call time?</p></div>
+    </div>
+
+    <div class="challenge hard">
+      <div class="challenge-meta"><span class="diff diff-hard">Elite</span><span class="tag tag-red">Challenge 7</span></div>
+      <h3>Serialisation — Describe the Build</h3>
+      <p>Add a <code>getBuildCode()</code> method to the <code>Character</code> interface (default implementation: return <code>getName()</code>). Each decorator overrides it to append a short code: Sword → <code>"SW"</code>, Shield → <code>"SH"</code>, FireRune → <code>"FR"</code> etc. The build code for "Warrior + Sword + FireRune" should be <code>"Thor|SW|FR"</code>. Then write a <code>BuildParser.parse(String code)</code> that reconstructs the character from that string.</p>
+      <div class="callout callout-red" style="margin-top:10px"><div class="callout-title">Goal</div><p>This simulates save/load. The parser is the hardest part — it must reverse the decorator wrapping order.</p></div>
+    </div>
+
+    <div class="challenge boss">
+      <div class="challenge-meta"><span class="diff diff-boss">Boss</span><span class="tag tag-purple">Challenge 8</span></div>
+      <h3>Apply to a New Domain — Middleware Pipeline</h3>
+      <p>Redesign the Decorator pattern for an HTTP <strong>request middleware pipeline</strong>. <code>HttpRequest</code> is your component interface with <code>execute()</code> returning a response string. Build decorators: <code>AuthMiddleware</code> (checks a token, throws if missing), <code>LoggingMiddleware</code> (logs before and after), <code>CacheMiddleware</code> (returns cached result if available, otherwise delegates). Chain them: <code>new Logging(new Auth(new Cache(new RealRequest())))</code>.</p>
+      <div class="callout callout-purple" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This is how Express.js, ASP.NET Core, and Spring's filter chains work under the hood. Completing this proves you can spot and apply the Decorator pattern in real production frameworks — not just toy examples.</p></div>
+    </div>
+  </div>
+
+  <!-- ===================== PANEL 6: SOLUTIONS ===================== -->
+  <div id="panel-solutions" class="panel">
+    <div class="section-label">// Step 06</div>
+    <h2>Challenge Solutions</h2>
+    <p>Full solutions with explanations. Attempt each challenge first — then compare your approach.</p>
+
+    <!-- S1 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Recruit</span><span class="tag tag-green">Solution 1 — HolyArmour</span></div><h3>One new file. Zero edits to existing code.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">HolyArmour.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">HolyArmour</span> <span class="kw">extends</span> <span class="cl">EquipmentDecorator</span> {
+
+    <span class="kw">public</span> <span class="fn">HolyArmour</span>(<span class="cl">Character</span> c) { <span class="kw">super</span>(c); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public int</span> <span class="fn">getDefense</span>() { <span class="kw">return</span> character.<span class="fn">getDefense</span>() + <span class="nu">18</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> character.<span class="fn">describeSelf</span>() + <span class="st">" + [HolyArmour +18DEF]"</span>;
+    }
+}
+
+<span class="cm">// Verification:
+// Character p = new HolyArmour(new Warrior("Paladin"));
+// p.getDefense() → 15 + 18 = 33 ✓
+// Character p2 = new Shield(p);
+// p2.getDefense() → 33 + 10 = 43 ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S2 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Recruit</span><span class="tag tag-green">Solution 2 — Paladin Class</span></div><h3>Extends AbstractCharacter. All decorators work immediately.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Paladin.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Paladin</span> <span class="kw">extends</span> <span class="cl">AbstractCharacter</span> {
+    <span class="kw">public</span> <span class="fn">Paladin</span>(<span class="cl">String</span> name) {
+        <span class="kw">super</span>(name, <span class="nu">16</span>, <span class="nu">20</span>, <span class="nu">6</span>);
+    }
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> <span class="st">"✙  Paladin  | "</span> + <span class="kw">super</span>.<span class="fn">describeSelf</span>();
+    }
+}
+
+<span class="cm">// All decorators work with zero changes:
+// Character p = new FireRune(new HolyArmour(new Paladin("Arthur")));
+// p.getAttack()  → 16 + 12 = 28 ✓
+// p.getDefense() → 20 + 18 = 38 ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S3 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Solution 3 — Stat Inspector</span></div><h3>Walk the chain with instanceof. Field visibility must be at least package-private.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">CharacterInspector.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.*;
+
+<span class="kw">public class</span> <span class="cl">CharacterInspector</span> {
+
+    <span class="kw">public static</span> <span class="cl">List</span>&lt;<span class="cl">String</span>&gt; <span class="fn">listEquipment</span>(<span class="cl">Character</span> c) {
+        <span class="cl">List</span>&lt;<span class="cl">String</span>&gt; equipment = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+        <span class="cl">Character</span> current = c;
+
+        <span class="kw">while</span> (current <span class="kw">instanceof</span> <span class="cl">EquipmentDecorator</span> ed) {
+            equipment.<span class="fn">add</span>(ed.<span class="fn">getClass</span>().<span class="fn">getSimpleName</span>());
+            current = ed.character; <span class="cm">// ← requires 'protected' or package visibility</span>
+        }
+        <span class="kw">return</span> equipment; <span class="cm">// outermost first</span>
+    }
+
+    <span class="kw">public static void</span> <span class="fn">printStats</span>(<span class="cl">Character</span> c) {
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(
+            <span class="st">"%-40s  ATK:%-3d DEF:%-3d SPD:%-3d%n"</span>,
+            c.<span class="fn">getName</span>() + <span class="st">" ["</span> + <span class="cl">String</span>.<span class="fn">join</span>(<span class="st">","</span>, <span class="fn">listEquipment</span>(c)) + <span class="st">"]"</span>,
+            c.<span class="fn">getAttack</span>(), c.<span class="fn">getDefense</span>(), c.<span class="fn">getSpeed</span>()
+        );
+    }
+}
+
+<span class="cm">// Note: EquipmentDecorator.character field should be 'protected'
+// (it already is in our design). Using the pattern variable 'ed'
+// in the instanceof check is Java 16+ pattern matching syntax.</span></code></pre>
+    </div>
+    <div class="callout callout-cyan">
+      <div class="callout-title">💡 Encapsulation Trade-off</div>
+      <p>Exposing <code>character</code> as <code>protected</code> lets utility classes inspect the chain — but only from within the same package or subclasses. If you need stricter encapsulation, add a <code>getWrapped()</code> method to <code>EquipmentDecorator</code> instead. That's the idiomatic Java approach.</p>
+    </div>
+
+    <hr class="div">
+
+    <!-- S4 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Solution 4 — CursedBlade</span></div><h3>Negative stat modifier with a 0-floor guard.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">CursedBlade.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">CursedBlade</span> <span class="kw">extends</span> <span class="cl">EquipmentDecorator</span> {
+
+    <span class="kw">private static final int</span> ATTACK_BONUS  =  <span class="nu">20</span>;
+    <span class="kw">private static final int</span> DEFENSE_CURSE = -<span class="nu">8</span>;
+
+    <span class="kw">public</span> <span class="fn">CursedBlade</span>(<span class="cl">Character</span> c) { <span class="kw">super</span>(c); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public int</span> <span class="fn">getAttack</span>() {
+        <span class="kw">return</span> character.<span class="fn">getAttack</span>() + ATTACK_BONUS;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public int</span> <span class="fn">getDefense</span>() {
+        <span class="cm">// Guard lives HERE in the decorator — not in the base class.
+        // Reason: the base class shouldn't know about item-specific
+        // constraints. Each item owns its own rules.</span>
+        <span class="kw">return</span> <span class="cl">Math</span>.<span class="fn">max</span>(<span class="nu">0</span>, character.<span class="fn">getDefense</span>() + DEFENSE_CURSE);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="kw">return</span> character.<span class="fn">describeSelf</span>() + <span class="st">" + [CursedBlade +20ATK -8DEF]"</span>;
+    }
+}
+
+<span class="cm">// Character mage = new CursedBlade(new Mage("Lyra"));
+// mage.getDefense() → Math.max(0, 6 - 8) = 0  (not -2) ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S5 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Solution 5 — Unique Equipment Enforcement</span></div><h3>Factory-style guard before wrapping.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">EquipmentValidator.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">EquipmentValidator</span> {
+
+    <span class="cm">/**
+     * Safely wraps 'base' with 'item', but throws if that
+     * item type is already anywhere in the decorator chain.
+     */</span>
+    <span class="kw">public static</span> <span class="cl">Character</span> <span class="fn">equip</span>(<span class="cl">Character</span> base, <span class="cl">EquipmentDecorator</span> item) {
+        <span class="cl">Class</span>&lt;?&gt; itemType = item.<span class="fn">getClass</span>();
+        <span class="cl">Character</span> current = base;
+
+        <span class="kw">while</span> (current <span class="kw">instanceof</span> <span class="cl">EquipmentDecorator</span> ed) {
+            <span class="kw">if</span> (ed.<span class="fn">getClass</span>() == itemType) {
+                <span class="kw">throw new</span> <span class="cl">IllegalStateException</span>(
+                    <span class="st">"Cannot equip "</span> + itemType.<span class="fn">getSimpleName</span>() +
+                    <span class="st">": already equipped on "</span> + base.<span class="fn">getName</span>()
+                );
+            }
+            current = ed.character;
+        }
+        <span class="cm">// Safe to wrap — item not already present</span>
+        item.character = base; <span class="cm">// requires package-private or setter</span>
+        <span class="kw">return</span> item;
+    }
+}
+
+<span class="cm">// Better approach — pass the base to item constructor as usual,
+// but validate before construction:
+// EquipmentValidator.assertNotEquipped(base, SpeedBoots.class);
+// Character c = new SpeedBoots(base); // only if check passed</span></code></pre>
+    </div>
+    <div class="callout callout-gold"><div class="callout-title">💡 Design Note</div><p>A cleaner approach separates validation from construction: validate first, then use the normal <code>new SpeedBoots(base)</code> constructor. This avoids mutating the decorator after construction and keeps constructors pure.</p></div>
+
+    <hr class="div">
+
+    <!-- S6 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">Elite</span><span class="tag tag-red">Solution 6 — Shadow Set Bonus</span></div><h3>Detect chain composition at construction time.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">ShadowSetBonus.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">ShadowSetBonus</span> <span class="kw">extends</span> <span class="cl">EquipmentDecorator</span> {
+
+    <span class="kw">private static final int</span> SET_BONUS = <span class="nu">10</span>;
+    <span class="kw">private final boolean</span> bonusActive;
+
+    <span class="kw">public</span> <span class="fn">ShadowSetBonus</span>(<span class="cl">Character</span> c) {
+        <span class="kw">super</span>(c);
+        <span class="cm">// Check the chain ONCE at construction time — more efficient
+        // than checking on every getSpeed() call</span>
+        <span class="kw">this</span>.bonusActive = <span class="fn">hasItem</span>(c, <span class="cl">ShadowCloak</span>.class)
+                        && <span class="fn">hasItem</span>(c, <span class="cl">SpeedBoots</span>.class);
+    }
+
+    <span class="kw">private static boolean</span> <span class="fn">hasItem</span>(<span class="cl">Character</span> c, <span class="cl">Class</span>&lt;?&gt; type) {
+        <span class="kw">while</span> (c <span class="kw">instanceof</span> <span class="cl">EquipmentDecorator</span> ed) {
+            <span class="kw">if</span> (type.<span class="fn">isInstance</span>(ed)) <span class="kw">return true</span>;
+            c = ed.character;
+        }
+        <span class="kw">return false</span>;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public int</span> <span class="fn">getSpeed</span>() {
+        <span class="kw">return</span> character.<span class="fn">getSpeed</span>() + (bonusActive ? SET_BONUS : <span class="nu">0</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describeSelf</span>() {
+        <span class="cl">String</span> bonus = bonusActive ? <span class="st">" + [SHADOW SET BONUS +10SPD]"</span> : <span class="st">""</span>;
+        <span class="kw">return</span> character.<span class="fn">describeSelf</span>() + bonus;
+    }
+}
+
+<span class="cm">// Usage:
+// Character zane = new ShadowSetBonus(
+//     new SpeedBoots(new ShadowCloak(new Rogue("Zane")))
+// );
+// zane.getSpeed() → 20 (base) + 7 (cloak) + 15 (boots) + 10 (set) = 52 ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S7 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">Elite</span><span class="tag tag-red">Solution 7 — Build Code Serialisation</span></div><h3>Each decorator appends its code; parser reverses the wrapping.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Character.java (updated) + Decorators (snippet)</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Add to Character interface with a default:</span>
+<span class="kw">public interface</span> <span class="cl">Character</span> {
+    <span class="cm">// ... existing methods ...</span>
+    <span class="kw">default</span> <span class="cl">String</span> <span class="fn">getBuildCode</span>() { <span class="kw">return</span> <span class="fn">getName</span>(); }
+}
+
+<span class="cm">// In AbstractCharacter — base case</span>
+<span class="an">@Override</span>
+<span class="kw">public</span> <span class="cl">String</span> <span class="fn">getBuildCode</span>() { <span class="kw">return</span> name; }
+
+<span class="cm">// In Sword decorator:</span>
+<span class="an">@Override</span>
+<span class="kw">public</span> <span class="cl">String</span> <span class="fn">getBuildCode</span>() {
+    <span class="kw">return</span> character.<span class="fn">getBuildCode</span>() + <span class="st">"|SW"</span>;
+}
+<span class="cm">// FireRune → "|FR", Shield → "|SH",
+// SpeedBoots → "|SB", ShadowCloak → "|SC"</span></code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">BuildParser.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">BuildParser</span> {
+
+    <span class="kw">public static</span> <span class="cl">Character</span> <span class="fn">parse</span>(<span class="cl">String</span> code) {
+        <span class="cl">String</span>[] parts = code.<span class="fn">split</span>(<span class="st">"\\|"</span>);
+        <span class="cm">// parts[0] = name (we'll default to Warrior for simplicity)</span>
+        <span class="cl">Character</span> c = <span class="kw">new</span> <span class="cl">Warrior</span>(parts[<span class="nu">0</span>]);
+
+        <span class="cm">// Apply equipment in order (index 1 onwards)</span>
+        <span class="kw">for</span> (<span class="kw">int</span> i = <span class="nu">1</span>; i < parts.length; i++) {
+            c = <span class="kw">switch</span> (parts[i]) {
+                <span class="kw">case</span> <span class="st">"SW"</span> -> <span class="kw">new</span> <span class="cl">Sword</span>(c);
+                <span class="kw">case</span> <span class="st">"SH"</span> -> <span class="kw">new</span> <span class="cl">Shield</span>(c);
+                <span class="kw">case</span> <span class="st">"FR"</span> -> <span class="kw">new</span> <span class="cl">FireRune</span>(c);
+                <span class="kw">case</span> <span class="st">"SB"</span> -> <span class="kw">new</span> <span class="cl">SpeedBoots</span>(c);
+                <span class="kw">case</span> <span class="st">"SC"</span> -> <span class="kw">new</span> <span class="cl">ShadowCloak</span>(c);
+                <span class="kw">default</span>    -> <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Unknown code: "</span> + parts[i]);
+            };
+        }
+        <span class="kw">return</span> c;
+    }
+}
+
+<span class="cm">// Round-trip test:
+// Character original = new FireRune(new Sword(new Warrior("Thor")));
+// String code = original.getBuildCode();   // → "Thor|SW|FR"
+// Character restored = BuildParser.parse(code);
+// restored.getAttack() → 18 + 8 + 12 = 38 ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S8 -->
+    <div class="challenge boss"><div class="challenge-meta"><span class="diff diff-boss">Boss</span><span class="tag tag-purple">Solution 8 — Middleware Pipeline</span></div><h3>Same pattern, production-grade domain. Identical structure.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">HttpRequest.java + RealRequest.java + AbstractMiddleware.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Component interface</span>
+<span class="kw">public interface</span> <span class="cl">HttpRequest</span> {
+    <span class="cl">String</span> <span class="fn">execute</span>(<span class="cl">String</span> token);
+}
+
+<span class="cm">// Concrete component (the real work)</span>
+<span class="kw">public class</span> <span class="cl">RealRequest</span> <span class="kw">implements</span> <span class="cl">HttpRequest</span> {
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">execute</span>(<span class="cl">String</span> token) {
+        <span class="kw">return</span> <span class="st">"{ \"data\": \"secret payload\" }"</span>;
+    }
+}
+
+<span class="cm">// Abstract decorator</span>
+<span class="kw">public abstract class</span> <span class="cl">AbstractMiddleware</span> <span class="kw">implements</span> <span class="cl">HttpRequest</span> {
+    <span class="kw">protected final</span> <span class="cl">HttpRequest</span> next;
+    <span class="kw">public</span> <span class="fn">AbstractMiddleware</span>(<span class="cl">HttpRequest</span> next) { <span class="kw">this</span>.next = next; }
+}</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">AuthMiddleware.java / LoggingMiddleware.java / CacheMiddleware.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">AuthMiddleware</span> <span class="kw">extends</span> <span class="cl">AbstractMiddleware</span> {
+    <span class="kw">private static final</span> <span class="cl">String</span> VALID = <span class="st">"Bearer secret123"</span>;
+
+    <span class="kw">public</span> <span class="fn">AuthMiddleware</span>(<span class="cl">HttpRequest</span> next) { <span class="kw">super</span>(next); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">execute</span>(<span class="cl">String</span> token) {
+        <span class="kw">if</span> (!VALID.<span class="fn">equals</span>(token))
+            <span class="kw">throw new</span> <span class="cl">SecurityException</span>(<span class="st">"401 Unauthorized"</span>);
+        <span class="kw">return</span> next.<span class="fn">execute</span>(token); <span class="cm">// add before, delegate</span>
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">LoggingMiddleware</span> <span class="kw">extends</span> <span class="cl">AbstractMiddleware</span> {
+    <span class="kw">public</span> <span class="fn">LoggingMiddleware</span>(<span class="cl">HttpRequest</span> next) { <span class="kw">super</span>(next); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">execute</span>(<span class="cl">String</span> token) {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[LOG] Request starting..."</span>);   <span class="cm">// before</span>
+        <span class="cl">String</span> result = next.<span class="fn">execute</span>(token);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[LOG] Response: "</span> + result);    <span class="cm">// after</span>
+        <span class="kw">return</span> result;
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">CacheMiddleware</span> <span class="kw">extends</span> <span class="cl">AbstractMiddleware</span> {
+    <span class="kw">private final</span> <span class="cl">Map</span>&lt;<span class="cl">String</span>, <span class="cl">String</span>&gt; cache = <span class="kw">new</span> <span class="cl">HashMap</span>&lt;&gt;();
+
+    <span class="kw">public</span> <span class="fn">CacheMiddleware</span>(<span class="cl">HttpRequest</span> next) { <span class="kw">super</span>(next); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">execute</span>(<span class="cl">String</span> token) {
+        <span class="kw">if</span> (cache.<span class="fn">containsKey</span>(token)) {
+            <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[CACHE] Hit!"</span>);
+            <span class="kw">return</span> cache.<span class="fn">get</span>(token); <span class="cm">// short-circuit — no delegation</span>
+        }
+        <span class="cl">String</span> result = next.<span class="fn">execute</span>(token);
+        cache.<span class="fn">put</span>(token, result);  <span class="cm">// store after delegation</span>
+        <span class="kw">return</span> result;
+    }
+}
+
+<span class="cm">// Pipeline assembly:
+// HttpRequest pipeline = new LoggingMiddleware(
+//     new AuthMiddleware(
+//         new CacheMiddleware(
+//             new RealRequest()
+//         )
+//     )
+// );
+// pipeline.execute("Bearer secret123");
+// → [LOG] Request starting...
+// → [LOG] Response: { "data": "secret payload" }
+//
+// pipeline.execute("Bearer secret123"); // second call
+// → [LOG] Request starting...
+// → [CACHE] Hit!
+// → [LOG] Response: { "data": "secret payload" }</span></code></pre>
+    </div>
+    <div class="callout callout-purple">
+      <div class="callout-title">🔗 Real-World Connection</div>
+      <p>This is <em>exactly</em> how Express.js <code>app.use(middleware)</code> works, how ASP.NET Core's <code>IMiddleware</code> pipeline works, and how Spring's <code>OncePerRequestFilter</code> chain works. The only difference is that those frameworks wire up the chain for you. The Decorator structure underneath is identical to what you just wrote.</p>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    event.target.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
