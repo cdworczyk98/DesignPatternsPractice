@@ -1,7 +1,5 @@
 package Decorator.CoffeeShop.Beverages;
 
-import Decorator.CoffeeShop.Beverage;
-
 public class Espresso extends Beverage {
 
     public Espresso() {

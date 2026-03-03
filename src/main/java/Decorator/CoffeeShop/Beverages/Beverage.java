@@ -1,11 +1,10 @@
-package Decorator.CoffeeShop;
+package Decorator.CoffeeShop.Beverages;
 
+import lombok.Getter;
+
+@Getter
 public abstract class Beverage {
     protected String description = "Unknown Beverage";
-
-    public String getDescription() {
-        return description;
-    }
 
     public abstract double cost();
 }

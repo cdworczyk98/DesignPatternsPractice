@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decorator Pattern — Java Practice</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent: #e8c547;
+    --accent2: #47b8e8;
+    --accent3: #e84770;
+    --text: #d4d4d8;
+    --text-dim: #71717a;
+    --code-bg: #0d1117;
+    --success: #4ade80;
+    --tag-bg: #1a1a2e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    padding: 60px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    font-size: clamp(36px, 6vw, 64px);
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -0.03em;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    max-width: 520px;
+    line-height: 1.7;
+  }
+
+  /* Nav Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tab-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    padding: 12px 20px;
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    position: relative;
+    transition: color 0.2s;
+  }
+
+  .tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transition: transform 0.2s;
+  }
+
+  .tab-btn.active {
+    color: var(--accent);
+  }
+
+  .tab-btn.active::after {
+    transform: scaleX(1);
+  }
+
+  .tab-btn:hover { color: var(--text); }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.3s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Section Headers */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+  }
+
+  h3 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 8px;
+  }
+
+  p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-dim);
+    margin-bottom: 16px;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 640px) {
+    .card-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Code blocks */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+  }
+
+  .code-header {
+    background: #161b22;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .code-lang {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .code-filename {
+    font-size: 11px;
+    color: var(--accent2);
+  }
+
+  pre {
+    padding: 20px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Syntax highlighting (manual) */
+  .kw { color: #ff79c6; }      /* keywords */
+  .cl { color: #8be9fd; }      /* class names */
+  .fn { color: #50fa7b; }      /* function names */
+  .st { color: #f1fa8c; }      /* strings */
+  .cm { color: #6272a4; }      /* comments */
+  .nu { color: #bd93f9; }      /* numbers */
+  .an { color: #ffb86c; }      /* annotations */
+  .tx { color: var(--text); }  /* regular text */
+
+  /* Tags / badges */
+  .tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 3px;
+    margin-right: 6px;
+    margin-bottom: 4px;
+  }
+
+  .tag-yellow { background: rgba(232,197,71,0.15); color: var(--accent); border: 1px solid rgba(232,197,71,0.3); }
+  .tag-blue   { background: rgba(71,184,232,0.15); color: var(--accent2); border: 1px solid rgba(71,184,232,0.3); }
+  .tag-red    { background: rgba(232,71,112,0.15); color: var(--accent3); border: 1px solid rgba(232,71,112,0.3); }
+  .tag-green  { background: rgba(74,222,128,0.15); color: var(--success); border: 1px solid rgba(74,222,128,0.3); }
+
+  /* Alert / callout boxes */
+  .callout {
+    border-left: 3px solid;
+    padding: 14px 18px;
+    border-radius: 0 6px 6px 0;
+    margin: 16px 0;
+  }
+
+  .callout-warn { border-color: var(--accent3); background: rgba(232,71,112,0.07); }
+  .callout-info { border-color: var(--accent2); background: rgba(71,184,232,0.07); }
+  .callout-tip  { border-color: var(--success); background: rgba(74,222,128,0.07); }
+  .callout-key  { border-color: var(--accent); background: rgba(232,197,71,0.07); }
+
+  .callout p { margin: 0; }
+
+  .callout-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .callout-warn .callout-title { color: var(--accent3); }
+  .callout-info .callout-title { color: var(--accent2); }
+  .callout-tip  .callout-title { color: var(--success); }
+  .callout-key  .callout-title { color: var(--accent); }
+
+  /* Numbered steps */
+  .steps { counter-reset: step; list-style: none; }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    min-width: 28px;
+    padding-top: 2px;
+  }
+
+  /* Challenge boxes */
+  .challenge {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .challenge::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .challenge.easy::before   { background: var(--success); }
+  .challenge.medium::before { background: var(--accent); }
+  .challenge.hard::before   { background: var(--accent3); }
+
+  .challenge-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .diff {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 2px;
+  }
+
+  .diff-easy   { background: rgba(74,222,128,0.15); color: var(--success); }
+  .diff-medium { background: rgba(232,197,71,0.15); color: var(--accent); }
+  .diff-hard   { background: rgba(232,71,112,0.15); color: var(--accent3); }
+
+  /* UML / Diagram box */
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 28px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 2;
+    margin: 16px 0;
+  }
+
+  .box {
+    display: inline-block;
+    border: 1px solid var(--accent2);
+    padding: 6px 18px;
+    border-radius: 4px;
+    color: var(--accent2);
+    background: rgba(71,184,232,0.08);
+    margin: 4px;
+  }
+
+  .box.interface {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(232,197,71,0.08);
+    font-style: italic;
+  }
+
+  .box.abstract {
+    border-color: #bd93f9;
+    color: #bd93f9;
+    background: rgba(189,147,249,0.08);
+    border-style: dashed;
+  }
+
+  .arrow {
+    color: var(--text-dim);
+    font-size: 18px;
+    vertical-align: middle;
+    margin: 0 4px;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 32px 0;
+  }
+
+  /* scroll reveal */
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    animation: slideUp 0.4s ease both;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="reveal">
+    <div class="eyebrow">// Design Patterns — Java Workshop</div>
+    <h1>The <span>Decorator</span><br>Pattern</h1>
+    <p class="subtitle">From messy inheritance to clean extensibility — a complete hands-on walkthrough.</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('baseline')">① Baseline App</button>
+    <button class="tab-btn" onclick="switchTab('problem')">② The Problem</button>
+    <button class="tab-btn" onclick="switchTab('pattern')">③ The Pattern</button>
+    <button class="tab-btn" onclick="switchTab('refactor')">④ Refactored</button>
+    <button class="tab-btn" onclick="switchTab('challenges')">⑤ Challenges</button>
+  </nav>
+
+  <!-- PANEL 1: Baseline -->
+  <div id="panel-baseline" class="panel active">
+    <div class="section-label">// Step 01</div>
+    <h2>The Baseline App — No Pattern</h2>
+    <p>A simple coffee shop ordering system. Works fine for now. No patterns needed yet — just plain Java classes with inheritance.</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <span class="tag tag-blue">Domain</span>
+        <h3>Coffee Shop</h3>
+        <p>We sell beverages. Each beverage has a description and a cost. Customers can order: Espresso, DarkRoast, or HouseBlend.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-yellow">Current Design</span>
+        <h3>Simple Inheritance</h3>
+        <p>One abstract <code>Beverage</code> base class. Each coffee type extends it and overrides <code>cost()</code> and <code>getDescription()</code>.</p>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Beverage.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="cm">// Abstract base class for all beverages</span>
+<span class="kw">public abstract class</span> <span class="cl">Beverage</span> {
+    <span class="kw">protected</span> <span class="cl">String</span> description;
+
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDescription</span>() {
+        <span class="kw">return</span> description;
+    }
+
+    <span class="kw">public abstract double</span> <span class="fn">cost</span>();
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Espresso.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Espresso</span> <span class="kw">extends</span> <span class="cl">Beverage</span> {
+
+    <span class="kw">public</span> <span class="fn">Espresso</span>() {
+        description = <span class="st">"Espresso"</span>;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public double</span> <span class="fn">cost</span>() {
+        <span class="kw">return</span> <span class="nu">1.99</span>;
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">DarkRoast.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">DarkRoast</span> <span class="kw">extends</span> <span class="cl">Beverage</span> {
+
+    <span class="kw">public</span> <span class="fn">DarkRoast</span>() {
+        description = <span class="st">"Dark Roast"</span>;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public double</span> <span class="fn">cost</span>() {
+        <span class="kw">return</span> <span class="nu">1.49</span>;
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">HouseBlend.java</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">HouseBlend</span> <span class="kw">extends</span> <span class="cl">Beverage</span> {
+
+    <span class="kw">public</span> <span class="fn">HouseBlend</span>() {
+        description = <span class="st">"House Blend"</span>;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public double</span> <span class="fn">cost</span>() {
+        <span class="kw">return</span> <span class="nu">0.89</span>;
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">CoffeeShop.java</span>
+        <span class="code-lang">Java — Main</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">CoffeeShop</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+        <span class="cl">Beverage</span> b1 = <span class="kw">new</span> <span class="cl">Espresso</span>();
+        <span class="cl">Beverage</span> b2 = <span class="kw">new</span> <span class="cl">DarkRoast</span>();
+        <span class="cl">Beverage</span> b3 = <span class="kw">new</span> <span class="cl">HouseBlend</span>();
+
+        <span class="cl">System</span>.out.<span class="fn">println</span>(b1.<span class="fn">getDescription</span>() + <span class="st">" $"</span> + b1.<span class="fn">cost</span>());
+        <span class="cl">System</span>.out.<span class="fn">println</span>(b2.<span class="fn">getDescription</span>() + <span class="st">" $"</span> + b2.<span class="fn">cost</span>());
+        <span class="cl">System</span>.out.<span class="fn">println</span>(b3.<span class="fn">getDescription</span>() + <span class="st">" $"</span> + b3.<span class="fn">cost</span>());
+    }
+}
+<span class="cm">// Output:
+// Espresso $1.99
+// Dark Roast $1.49
+// House Blend $0.89</span></code></pre>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-title">✓ This Works</div>
+      <p>Clean, simple, readable. No over-engineering. This is the right design — <em>until requirements change</em>. Click "② The Problem" to see what breaks it.</p>
+    </div>
+  </div>
+
+  <!-- PANEL 2: The Problem -->
+  <div id="panel-problem" class="panel">
+    <div class="section-label">// Step 02</div>
+    <h2>New Requirements That Break It</h2>
+    <p>Business is booming. Customers now want to add condiments — milk, soy, mocha, and whipped cream — each with its own cost. Your naive solution creates a class explosion.</p>
+
+    <div class="callout callout-warn">
+      <div class="callout-title">⚠ New Requirement</div>
+      <p>Support any combination of condiments per beverage: Milk (+$0.25), Soy (+$0.20), Mocha (+$0.30), Whip (+$0.35). A customer should be able to order a "Double Mocha Soy Latte with Whip".</p>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-red">Anti-Pattern</span>
+      <h3>The Naive Approach — Subclass Explosion</h3>
+      <p>You create a subclass for every combination. With 3 beverages × 16 condiment combos, you need <strong style="color:var(--accent3)">48+ classes</strong>.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">❌ Class Explosion (Don't do this)</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="cm">// Just a sample — imagine doing this for ALL combinations</span>
+<span class="kw">public class</span> <span class="cl">EspressoWithMilk</span>        <span class="kw">extends</span> <span class="cl">Beverage</span> { ... }
+<span class="kw">public class</span> <span class="cl">EspressoWithMilkAndMocha</span> <span class="kw">extends</span> <span class="cl">Beverage</span> { ... }
+<span class="kw">public class</span> <span class="cl">EspressoWithSoy</span>         <span class="kw">extends</span> <span class="cl">Beverage</span> { ... }
+<span class="kw">public class</span> <span class="cl">DarkRoastWithWhip</span>       <span class="kw">extends</span> <span class="cl">Beverage</span> { ... }
+<span class="kw">public class</span> <span class="cl">DarkRoastWithMilkAndWhip</span> <span class="kw">extends</span> <span class="cl">Beverage</span> { ... }
+<span class="cm">// ... 40+ more classes ...</span></code></pre>
+    </div>
+
+    <div class="card">
+      <span class="tag tag-yellow">Slightly Better, Still Bad</span>
+      <h3>Boolean Flags in the Base Class</h3>
+      <p>Put condiment flags directly in <code>Beverage</code>. Avoids class explosion but violates Open/Closed Principle — every new condiment requires editing the base class.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">❌ Beverage.java (Flag-based anti-pattern)</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public abstract class</span> <span class="cl">Beverage</span> {
+    <span class="kw">private boolean</span> milk, soy, mocha, whip; <span class="cm">// ← grows forever</span>
+    <span class="kw">private double</span> milkCost = <span class="nu">0.25</span>, soyCost = <span class="nu">0.20</span>;
+    <span class="kw">private double</span> mochaCost = <span class="nu">0.30</span>, whipCost = <span class="nu">0.35</span>;
+
+    <span class="kw">public double</span> <span class="fn">condimentCost</span>() {
+        <span class="kw">double</span> total = <span class="nu">0</span>;
+        <span class="kw">if</span> (hasMilk())  total += milkCost;
+        <span class="kw">if</span> (hasSoy())   total += soyCost;
+        <span class="kw">if</span> (hasMocha()) total += mochaCost;
+        <span class="kw">if</span> (hasWhip())  total += whipCost;
+        <span class="kw">return</span> total;
+    }
+    <span class="cm">// Problems:
+    // 1. What if we add "oat milk"? Edit this class.
+    // 2. What about double mocha? No support.
+    // 3. Tea shouldn't have whip — but base class allows it.
+    // 4. Violates Open/Closed Principle.</span>
+}</code></pre>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-label">// Design Principles Violated</div>
+    <div class="card-grid">
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Open/Closed Principle</h3>
+        <p>Adding a new condiment requires <em>modifying</em> the Beverage base class. Classes should be open for extension, closed for modification.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Single Responsibility</h3>
+        <p>The base class now manages both beverage identity AND all possible condiment combinations. Too many reasons to change.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-key">
+      <div class="callout-title">💡 The Key Insight</div>
+      <p>We need to add behavior to objects <strong style="color:var(--accent)">at runtime</strong>, not at compile time via subclassing. This is exactly what the Decorator Pattern solves.</p>
+    </div>
+  </div>
+
+  <!-- PANEL 3: The Pattern -->
+  <div id="panel-pattern" class="panel">
+    <div class="section-label">// Step 03</div>
+    <h2>The Decorator Pattern Explained</h2>
+    <p>Attach additional responsibilities to an object dynamically. Decorators provide a flexible alternative to subclassing for extending functionality.</p>
+
+    <div class="diagram">
+      <div><span class="box interface">«interface» Component</span></div>
+      <div style="color:var(--text-dim); margin: 4px 0;">▲&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▲</div>
+      <div>
+        <span class="box">ConcreteComponent</span>
+        &nbsp;&nbsp;&nbsp;&nbsp;
+        <span class="box abstract">AbstractDecorator</span>
+      </div>
+      <div style="color:var(--text-dim); margin: 2px 0; margin-left: 280px;">▲</div>
+      <div style="margin-left: 200px;">
+        <span class="box">ConcreteDecoratorA</span>
+        &nbsp;
+        <span class="box">ConcreteDecoratorB</span>
+      </div>
+      <div style="margin-top: 16px; font-size: 11px; color: var(--text-dim);">
+        AbstractDecorator <strong style="color:var(--text)">wraps</strong> a Component reference — that's the key
+      </div>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <span class="tag tag-yellow">Role</span>
+        <h3>Component (Interface)</h3>
+        <p>Defines the interface for objects that can have responsibilities added. Both real objects and decorators implement this.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-blue">Role</span>
+        <h3>Concrete Component</h3>
+        <p>The real object being decorated. E.g. <code>Espresso</code>. It knows nothing about its decorators.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-yellow">Role</span>
+        <h3>Abstract Decorator</h3>
+        <p>Implements the Component interface and holds a reference to a wrapped Component. The magic is in this <em>composition</em>.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-blue">Role</span>
+        <h3>Concrete Decorator</h3>
+        <p>Extends the abstract decorator. Adds its behavior before or after delegating to the wrapped component.</p>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-label">// How Wrapping Works</div>
+    <h3>Nesting Call Chain</h3>
+    <p>Each decorator delegates to the inner object. The chain unwinds like nested function calls:</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Call Chain Visualization</span>
+        <span class="code-lang">Pseudocode</span>
+      </div>
+      <pre><code><span class="cm">// Building the object:</span>
+<span class="cl">Beverage</span> order = <span class="kw">new</span> <span class="cl">Whip</span>(<span class="kw">new</span> <span class="cl">Mocha</span>(<span class="kw">new</span> <span class="cl">Mocha</span>(<span class="kw">new</span> <span class="cl">DarkRoast</span>())));
+
+<span class="cm">// Calling order.cost() triggers:</span>
+Whip.cost()
+  → <span class="nu">0.35</span> + Mocha.cost()
+        → <span class="nu">0.30</span> + Mocha.cost()
+                → <span class="nu">0.30</span> + DarkRoast.cost()
+                        → <span class="nu">1.49</span>
+                = <span class="nu">1.79</span>
+        = <span class="nu">2.09</span>
+  = <span class="nu">2.44</span>  <span class="cm">← final result ✓</span></code></pre>
+    </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">📐 Design Principle</div>
+      <p><strong style="color:var(--accent2)">Favor composition over inheritance.</strong> Each decorator IS-A Beverage (via interface) and HAS-A Beverage (via composition). This dual relationship is the pattern's power.</p>
+    </div>
+  </div>
+
+  <!-- PANEL 4: Refactored -->
+  <div id="panel-refactor" class="panel">
+    <div class="section-label">// Step 04</div>
+    <h2>Refactored with Decorator Pattern</h2>
+    <p>Here is the complete, clean refactor. Compare it carefully to the baseline version on panel ①.</p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Beverage.java — Component (unchanged)</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public abstract class</span> <span class="cl">Beverage</span> {
+    <span class="kw">protected</span> <span class="cl">String</span> description = <span class="st">"Unknown Beverage"</span>;
+
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDescription</span>() {
+        <span class="kw">return</span> description;
+    }
+
+    <span class="kw">public abstract double</span> <span class="fn">cost</span>();
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">CondimentDecorator.java — Abstract Decorator</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="cm">// KEY: extends Beverage (IS-A) AND holds a Beverage (HAS-A)</span>
+<span class="kw">public abstract class</span> <span class="cl">CondimentDecorator</span> <span class="kw">extends</span> <span class="cl">Beverage</span> {
+    <span class="kw">protected</span> <span class="cl">Beverage</span> beverage; <span class="cm">// ← the wrapped component</span>
+
+    <span class="kw">public</span> <span class="fn">CondimentDecorator</span>(<span class="cl">Beverage</span> beverage) {
+        <span class="kw">this</span>.beverage = beverage;
+    }
+
+    <span class="cm">// Subclasses MUST override getDescription()</span>
+    <span class="kw">public abstract</span> <span class="cl">String</span> <span class="fn">getDescription</span>();
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Mocha.java — Concrete Decorator</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Mocha</span> <span class="kw">extends</span> <span class="cl">CondimentDecorator</span> {
+
+    <span class="kw">public</span> <span class="fn">Mocha</span>(<span class="cl">Beverage</span> beverage) {
+        <span class="kw">super</span>(beverage);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDescription</span>() {
+        <span class="kw">return</span> beverage.<span class="fn">getDescription</span>() + <span class="st">", Mocha"</span>;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public double</span> <span class="fn">cost</span>() {
+        <span class="kw">return</span> beverage.<span class="fn">cost</span>() + <span class="nu">0.30</span>;
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">Milk.java / Soy.java / Whip.java — Same pattern</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Milk</span> <span class="kw">extends</span> <span class="cl">CondimentDecorator</span> {
+    <span class="kw">public</span> <span class="fn">Milk</span>(<span class="cl">Beverage</span> b) { <span class="kw">super</span>(b); }
+
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDescription</span>() {
+        <span class="kw">return</span> beverage.<span class="fn">getDescription</span>() + <span class="st">", Milk"</span>;
+    }
+    <span class="an">@Override</span> <span class="kw">public double</span> <span class="fn">cost</span>() { <span class="kw">return</span> beverage.<span class="fn">cost</span>() + <span class="nu">0.25</span>; }
+}
+
+<span class="kw">public class</span> <span class="cl">Soy</span> <span class="kw">extends</span> <span class="cl">CondimentDecorator</span> {
+    <span class="kw">public</span> <span class="fn">Soy</span>(<span class="cl">Beverage</span> b) { <span class="kw">super</span>(b); }
+
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDescription</span>() {
+        <span class="kw">return</span> beverage.<span class="fn">getDescription</span>() + <span class="st">", Soy"</span>;
+    }
+    <span class="an">@Override</span> <span class="kw">public double</span> <span class="fn">cost</span>() { <span class="kw">return</span> beverage.<span class="fn">cost</span>() + <span class="nu">0.20</span>; }
+}
+
+<span class="kw">public class</span> <span class="cl">Whip</span> <span class="kw">extends</span> <span class="cl">CondimentDecorator</span> {
+    <span class="kw">public</span> <span class="fn">Whip</span>(<span class="cl">Beverage</span> b) { <span class="kw">super</span>(b); }
+
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDescription</span>() {
+        <span class="kw">return</span> beverage.<span class="fn">getDescription</span>() + <span class="st">", Whip"</span>;
+    }
+    <span class="an">@Override</span> <span class="kw">public double</span> <span class="fn">cost</span>() { <span class="kw">return</span> beverage.<span class="fn">cost</span>() + <span class="nu">0.35</span>; }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">CoffeeShop.java — Main (refactored)</span>
+        <span class="code-lang">Java</span>
+      </div>
+      <pre><code><span class="kw">public class</span> <span class="cl">CoffeeShop</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+
+        <span class="cm">// Plain espresso — no decorators</span>
+        <span class="cl">Beverage</span> b1 = <span class="kw">new</span> <span class="cl">Espresso</span>();
+        <span class="fn">print</span>(b1);
+
+        <span class="cm">// Dark Roast + double Mocha + Whip</span>
+        <span class="cl">Beverage</span> b2 = <span class="kw">new</span> <span class="cl">DarkRoast</span>();
+        b2 = <span class="kw">new</span> <span class="cl">Mocha</span>(b2);
+        b2 = <span class="kw">new</span> <span class="cl">Mocha</span>(b2);  <span class="cm">// double mocha!</span>
+        b2 = <span class="kw">new</span> <span class="cl">Whip</span>(b2);
+        <span class="fn">print</span>(b2);
+
+        <span class="cm">// House Blend + Soy + Milk + Whip (one-liner style)</span>
+        <span class="cl">Beverage</span> b3 = <span class="kw">new</span> <span class="cl">Whip</span>(<span class="kw">new</span> <span class="cl">Milk</span>(<span class="kw">new</span> <span class="cl">Soy</span>(<span class="kw">new</span> <span class="cl">HouseBlend</span>())));
+        <span class="fn">print</span>(b3);
+    }
+
+    <span class="kw">static void</span> <span class="fn">print</span>(<span class="cl">Beverage</span> b) {
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"%-45s $%.2f%n"</span>, b.<span class="fn">getDescription</span>(), b.<span class="fn">cost</span>());
+    }
+}
+
+<span class="cm">// Output:
+// Espresso                                       $1.99
+// Dark Roast, Mocha, Mocha, Whip                 $2.44
+// House Blend, Soy, Milk, Whip                   $1.69</span></code></pre>
+    </div>
+
+    <div class="callout callout-tip">
+      <div class="callout-title">✓ What We Gained</div>
+      <p>
+        <strong style="color:var(--success)">Open/Closed:</strong> Add new condiment? Create one new class, touch nothing else.<br><br>
+        <strong style="color:var(--success)">Runtime flexibility:</strong> Combinations assembled dynamically, not baked into class hierarchy.<br><br>
+        <strong style="color:var(--success)">Double-ups work:</strong> <code>new Mocha(new Mocha(...))</code> just works naturally.
+      </p>
+    </div>
+  </div>
+
+  <!-- PANEL 5: Challenges -->
+  <div id="panel-challenges" class="panel">
+    <div class="section-label">// Step 05</div>
+    <h2>Practice Challenges</h2>
+    <p>Work through these in order. Each builds on the refactored coffee shop codebase from panel ④.</p>
+
+    <div class="challenge easy">
+      <div class="challenge-meta">
+        <span class="diff diff-easy">Easy</span>
+        <span class="tag tag-green">Challenge 1</span>
+      </div>
+      <h3>Add a New Condiment</h3>
+      <p>Add an <code>OatMilk</code> condiment decorator that costs $0.45. Then verify you can order a "Espresso, Oat Milk, Mocha" and get the correct total ($2.74).</p>
+      <div class="callout callout-tip" style="margin-top:12px">
+        <div class="callout-title">Hint</div>
+        <p>You should only need to create <em>one new file</em>. If you're editing <code>Beverage.java</code> or <code>CondimentDecorator.java</code>, you're doing it wrong.</p>
+      </div>
+    </div>
+
+    <div class="challenge easy">
+      <div class="challenge-meta">
+        <span class="diff diff-easy">Easy</span>
+        <span class="tag tag-green">Challenge 2</span>
+      </div>
+      <h3>Add a New Beverage</h3>
+      <p>Add a <code>Decaf</code> beverage at $1.05. Confirm that all existing condiment decorators work on it without any changes to the decorator classes.</p>
+      <div class="callout callout-tip" style="margin-top:12px">
+        <div class="callout-title">Goal</div>
+        <p>This demonstrates the Open/Closed Principle from the other direction: new concrete components slot in without touching decorators.</p>
+      </div>
+    </div>
+
+    <div class="challenge medium">
+      <div class="challenge-meta">
+        <span class="diff diff-medium">Medium</span>
+        <span class="tag tag-yellow">Challenge 3</span>
+      </div>
+      <h3>Size Multiplier Decorator</h3>
+      <p>Add a <code>SizeUpgrade</code> decorator with an enum: <code>SMALL</code> (0.8×), <code>MEDIUM</code> (1.0×), <code>LARGE</code> (1.3×). It should modify the total cost by the multiplier and prepend the size to the description. A large double mocha dark roast should cost ~$3.17.</p>
+      <div class="callout callout-info" style="margin-top:12px">
+        <div class="callout-title">Think About</div>
+        <p>Should <code>SizeUpgrade</code> wrap the innermost or outermost object? Does the order matter? What are the pros/cons of each placement?</p>
+      </div>
+    </div>
+
+    <div class="challenge medium">
+      <div class="challenge-meta">
+        <span class="diff diff-medium">Medium</span>
+        <span class="tag tag-yellow">Challenge 4</span>
+      </div>
+      <h3>Duplicate Condiment Detection</h3>
+      <p>Add a utility method <code>countCondiment(Beverage b, Class&lt;?&gt; type)</code> that walks the decorator chain and counts how many times a specific condiment appears. Use this to warn if a customer tries to add 3+ of the same condiment.</p>
+      <div class="callout callout-info" style="margin-top:12px">
+        <div class="callout-title">Think About</div>
+        <p>You'll need to use <code>instanceof</code> or reflection to inspect the chain. Should this logic live in the decorator, the beverage, or a separate utility class?</p>
+      </div>
+    </div>
+
+    <div class="challenge hard">
+      <div class="challenge-meta">
+        <span class="diff diff-hard">Hard</span>
+        <span class="tag tag-red">Challenge 5</span>
+      </div>
+      <h3>Loyalty Points Decorator</h3>
+      <p>Extend <code>Beverage</code> with a <code>getPoints()</code> method (1 point per $0.50 spent, rounded down). Add a <code>LoyaltyCard</code> decorator that doubles the points earned. Design this without breaking the existing decorator chain.</p>
+      <div class="callout callout-warn" style="margin-top:12px">
+        <div class="callout-title">Design Challenge</div>
+        <p>Adding <code>getPoints()</code> to the abstract base class is one approach, but requires updating all existing decorators. Can you use a <strong style="color:var(--accent3)">separate interface</strong> to avoid this? Consider <code>Pointable</code> as an interface and think about the trade-offs.</p>
+      </div>
+    </div>
+
+    <div class="challenge hard">
+      <div class="challenge-meta">
+        <span class="diff diff-hard">Hard</span>
+        <span class="tag tag-red">Challenge 6 — Open-Ended</span>
+      </div>
+      <h3>Apply to a New Domain</h3>
+      <p>Redesign the Decorator pattern for a <strong>text formatter</strong> system. Start with a <code>PlainText</code> component. Build decorators: <code>BoldDecorator</code>, <code>ItalicDecorator</code>, <code>UpperCaseDecorator</code>, <code>TrimDecorator</code>. The chain <code>new Bold(new Italic(new Trim(new PlainText("  hello world  "))))</code> should produce <code>"&lt;b&gt;&lt;i&gt;hello world&lt;/i&gt;&lt;/b&gt;"</code>.</p>
+      <div class="callout callout-key" style="margin-top:12px">
+        <div class="callout-title">Stretch Goal</div>
+        <p>This is how Java's own <code>InputStream</code> / <code>BufferedReader</code> / <code>InputStreamReader</code> works. After finishing, read the Java I/O source — you'll recognize the pattern immediately.</p>
+      </div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="section-label">// Real World Examples</div>
+    <div class="card-grid">
+      <div class="card">
+        <span class="tag tag-blue">Java Standard Library</span>
+        <h3>java.io Streams</h3>
+        <p><code>new BufferedReader(new InputStreamReader(new FileInputStream("f")))</code> — this is the Decorator pattern in the JDK itself.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-blue">Spring Framework</span>
+        <h3>HttpServletRequestWrapper</h3>
+        <p>Spring's request wrapping in filter chains uses Decorator to add behaviour (auth, logging, compression) around the core HTTP request.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    event.target.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>

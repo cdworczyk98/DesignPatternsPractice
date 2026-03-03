@@ -1,8 +1,10 @@
-import Decorator.CoffeeShop.Beverage;
+import Decorator.CoffeeShop.Beverages.Beverage;
 import Decorator.CoffeeShop.Beverages.DarkRoast;
 import Decorator.CoffeeShop.Beverages.Espresso;
 import Decorator.CoffeeShop.Beverages.HouseBlend;
 import Decorator.CoffeeShop.Condiments.Milk;
+import Decorator.CoffeeShop.Condiments.Mocha;
+import Decorator.CoffeeShop.SizeUpgrade.SmallSize;
 import Observer.WeatheStation.PhoneDisplay;
 import Observer.WeatheStation.StatisticsDisplay;
 import Observer.WeatheStation.WeatherStation;
@@ -23,16 +25,23 @@ public class Main {
     public static void executeCoffeeShop() {
 
         Beverage b1 = new Espresso();
-        Beverage b2 = new DarkRoast();
+
+        Beverage b2 = new SmallSize(new Milk(new DarkRoast()));
+        Beverage b21 = new Milk(new SmallSize(new DarkRoast()));
+        Beverage b22 = new SmallSize(new Milk(new DarkRoast()));
 
         Beverage b3 = new HouseBlend();
+        b3 = new Mocha(b3);
         b3 = new Milk(b3);
 
+        printBev(b1);
+        printBev(b2);
+        printBev(b21);
+        printBev(b3);
+    }
 
-
-        System.out.println(b1.getDescription() + " $" + b1.cost());
-        System.out.println(b2.getDescription() + " $" + b2.cost());
-        System.out.println(b3.getDescription() + " $" + b3.cost());
+    private static void printBev(Beverage b) {
+        System.out.printf("%-40s £%.2f%n",  b.getDescription(), b.cost());
     }
 
     public static void executeObserver() {

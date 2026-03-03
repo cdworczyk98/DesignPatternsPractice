@@ -1,7 +1,5 @@
 package Decorator.CoffeeShop.Beverages;
 
-import Decorator.CoffeeShop.Beverage;
-
 public class DarkRoast extends Beverage {
 
     public DarkRoast() {

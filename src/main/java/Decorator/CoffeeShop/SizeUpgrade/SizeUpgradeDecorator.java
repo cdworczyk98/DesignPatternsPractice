@@ -1,12 +1,12 @@
-package Decorator.CoffeeShop.Condiments;
+package Decorator.CoffeeShop.SizeUpgrade;
 
 import Decorator.CoffeeShop.Beverages.Beverage;
 
-public abstract class CondimentDecorator extends Beverage {
+public abstract class SizeUpgradeDecorator extends Beverage {
 
     Beverage beverage;
 
-    public CondimentDecorator(Beverage beverage) {
+    public SizeUpgradeDecorator(Beverage beverage) {
         this.beverage = beverage;
     }
 

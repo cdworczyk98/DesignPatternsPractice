@@ -1,7 +1,5 @@
 package Decorator.CoffeeShop.Beverages;
 
-import Decorator.CoffeeShop.Beverage;
-
 public class HouseBlend extends Beverage {
 
     public HouseBlend() {
