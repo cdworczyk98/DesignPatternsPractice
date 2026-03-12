@@ -1,0 +1,1224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Singleton Pattern — Game Config Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080b08;
+    --surface: #0e120e;
+    --surface2: #141a14;
+    --border: #1e2a1e;
+    --accent: #39ff14;
+    --accent2: #ff9f1c;
+    --accent3: #ff3864;
+    --accent4: #00d4ff;
+    --accent5: #bf5af2;
+    --text: #d4e8d4;
+    --text-dim: #4a6b4a;
+    --code-bg: #060906;
+    --glow: rgba(57,255,20,0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* CRT vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.7) 100%);
+    pointer-events: none;
+    z-index: 9998;
+  }
+
+  /* Pixel grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(57,255,20,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(57,255,20,0.025) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 980px; margin: 0 auto; padding: 0 24px 100px; position: relative; z-index: 1; }
+
+  /* Header */
+  header { padding: 52px 0 36px; border-bottom: 1px solid var(--border); margin-bottom: 40px; }
+
+  .eyebrow {
+    font-family: 'VT323', monospace;
+    font-size: 16px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-shadow: 0 0 10px var(--accent);
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: 'VT323', monospace;
+    font-size: clamp(56px, 10vw, 112px);
+    line-height: 0.85;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+    text-shadow: 0 0 30px rgba(57,255,20,0.4), 0 0 60px rgba(57,255,20,0.1);
+  }
+
+  h1 .dim { color: var(--text-dim); text-shadow: none; }
+  h1 .hi2 { color: var(--accent2); text-shadow: 0 0 20px rgba(255,159,28,0.4); }
+
+  .subtitle {
+    margin-top: 16px;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.9;
+    max-width: 560px;
+  }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; margin-bottom: 36px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+
+  .tab-btn {
+    font-family: 'VT323', monospace;
+    font-size: 16px;
+    letter-spacing: 0.08em;
+    padding: 10px 20px;
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    position: relative;
+    transition: color 0.2s;
+    border-right: 1px solid var(--border);
+  }
+  .tab-btn:last-child { border-right: none; }
+  .tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    transform: scaleX(0);
+    transition: transform 0.2s;
+  }
+  .tab-btn.active { color: var(--accent); text-shadow: 0 0 8px var(--accent); }
+  .tab-btn.active::after { transform: scaleX(1); }
+  .tab-btn:hover { color: var(--text); }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeUp 0.25s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Typography */
+  .section-label {
+    font-family: 'VT323', monospace;
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  h2 {
+    font-family: 'VT323', monospace;
+    font-size: 42px;
+    letter-spacing: 0.04em;
+    margin-bottom: 10px;
+    color: var(--accent);
+    text-shadow: 0 0 16px rgba(57,255,20,0.3);
+  }
+
+  h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+
+  p {
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  strong { color: var(--text); font-weight: 600; }
+  code { font-family: 'Fira Code', monospace; color: var(--accent4); font-size: 11px; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    position: relative;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: 0.3;
+  }
+
+  .card-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .card-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 660px) { .card-grid, .card-grid-3 { grid-template-columns: 1fr; } }
+
+  /* Tags */
+  .tag {
+    display: inline-block;
+    font-family: 'Fira Code', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 2px;
+    margin-right: 6px;
+    margin-bottom: 8px;
+  }
+  .tag-green  { background: rgba(57,255,20,0.1);   color: var(--accent);  border: 1px solid rgba(57,255,20,0.25); }
+  .tag-orange { background: rgba(255,159,28,0.1);  color: var(--accent2); border: 1px solid rgba(255,159,28,0.25); }
+  .tag-red    { background: rgba(255,56,100,0.1);  color: var(--accent3); border: 1px solid rgba(255,56,100,0.25); }
+  .tag-blue   { background: rgba(0,212,255,0.1);   color: var(--accent4); border: 1px solid rgba(0,212,255,0.25); }
+  .tag-purple { background: rgba(191,90,242,0.1);  color: var(--accent5); border: 1px solid rgba(191,90,242,0.25); }
+
+  /* Code blocks */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 12px 0;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.75;
+  }
+  .code-header {
+    background: #0a0d0a;
+    border-bottom: 1px solid var(--border);
+    padding: 7px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .code-filename { font-size: 11px; color: var(--accent4); }
+  .code-lang { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-dim); }
+  pre { padding: 16px 18px; overflow-x: auto; scrollbar-width: thin; }
+
+  /* Syntax */
+  .kw { color: #ff79c6; } .cl { color: #8be9fd; } .fn { color: #50fa7b; }
+  .st { color: #f1fa8c; } .cm { color: #2e4a2e; } .nu { color: #bd93f9; }
+  .an { color: #ffb86c; } .sy { color: var(--accent); }
+
+  /* Callouts */
+  .callout { border-left: 3px solid; padding: 12px 16px; border-radius: 0 4px 4px 0; margin: 12px 0; }
+  .callout-green  { border-color: var(--accent);  background: rgba(57,255,20,0.04); }
+  .callout-orange { border-color: var(--accent2); background: rgba(255,159,28,0.04); }
+  .callout-red    { border-color: var(--accent3); background: rgba(255,56,100,0.04); }
+  .callout-blue   { border-color: var(--accent4); background: rgba(0,212,255,0.04); }
+  .callout-purple { border-color: var(--accent5); background: rgba(191,90,242,0.04); }
+  .callout-title { font-family: 'Fira Code', monospace; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; margin-bottom: 6px; }
+  .callout-green .callout-title  { color: var(--accent); }
+  .callout-orange .callout-title { color: var(--accent2); }
+  .callout-red .callout-title    { color: var(--accent3); }
+  .callout-blue .callout-title   { color: var(--accent4); }
+  .callout-purple .callout-title { color: var(--accent5); }
+  .callout p { margin: 0; }
+
+  hr.div { border: none; border-top: 1px solid var(--border); margin: 26px 0; }
+
+  /* Diagram */
+  .diagram-wrap { background: var(--code-bg); border: 1px solid var(--border); border-radius: 4px; padding: 24px; margin: 14px 0; overflow-x: auto; }
+  .diagram-wrap svg { display: block; margin: 0 auto; }
+
+  /* Challenges */
+  .challenge { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px 20px; margin-bottom: 12px; position: relative; overflow: hidden; }
+  .challenge::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 3px; }
+  .challenge.easy::before   { background: var(--accent);  box-shadow: 0 0 8px var(--accent); }
+  .challenge.medium::before { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+  .challenge.hard::before   { background: var(--accent3); box-shadow: 0 0 8px var(--accent3); }
+  .challenge.boss::before   { background: var(--accent5); box-shadow: 0 0 8px var(--accent5); }
+  .challenge-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .diff { font-family: 'Fira Code', monospace; font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; padding: 2px 8px; border-radius: 2px; }
+  .diff-easy   { background: rgba(57,255,20,0.12);  color: var(--accent); }
+  .diff-medium { background: rgba(255,159,28,0.12); color: var(--accent2); }
+  .diff-hard   { background: rgba(255,56,100,0.12); color: var(--accent3); }
+  .diff-boss   { background: rgba(191,90,242,0.12); color: var(--accent5); }
+
+  /* Variant comparison */
+  .variant-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  @media (max-width: 620px) { .variant-grid { grid-template-columns: 1fr; } }
+  .variant { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; }
+  .variant-title { font-family: 'VT323', monospace; font-size: 22px; margin-bottom: 4px; }
+  .variant-sub { font-family: 'Fira Code', monospace; font-size: 10px; color: var(--text-dim); margin-bottom: 10px; }
+
+  /* Numbered steps */
+  ol.steps { list-style: none; counter-reset: s; }
+  ol.steps li { counter-increment: s; display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); font-family: 'Fira Code', monospace; font-size: 12px; color: var(--text-dim); line-height: 1.8; }
+  ol.steps li:last-child { border-bottom: none; }
+  ol.steps li::before { content: counter(s, decimal-leading-zero); font-size: 10px; color: var(--accent); text-shadow: 0 0 6px var(--accent); min-width: 24px; padding-top: 2px; flex-shrink: 0; }
+  ol.steps li strong { color: var(--text); display: block; margin-bottom: 4px; }
+
+  /* Pixel art game config display */
+  .config-display {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 18px 20px;
+    font-family: 'VT323', monospace;
+    font-size: 18px;
+    line-height: 2;
+    color: var(--accent);
+    text-shadow: 0 0 6px rgba(57,255,20,0.4);
+  }
+  .config-row { display: flex; gap: 16px; align-items: center; }
+  .config-key { color: var(--accent4); min-width: 160px; }
+  .config-val { color: var(--accent); }
+  .config-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; max-width: 200px; }
+  .config-bar-fill { height: 100%; background: var(--accent); border-radius: 2px; box-shadow: 0 0 6px var(--accent); }
+
+  /* Warning box */
+  .warn-box {
+    background: rgba(255,56,100,0.06);
+    border: 1px solid rgba(255,56,100,0.3);
+    border-radius: 4px;
+    padding: 16px 18px;
+    margin: 14px 0;
+  }
+  .warn-title { font-family: 'VT323', monospace; font-size: 18px; color: var(--accent3); margin-bottom: 8px; text-shadow: 0 0 8px var(--accent3); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="eyebrow">&gt; DESIGN_PATTERNS / JAVA_WORKSHOP / V4.0</div>
+    <h1><span class="hi2">SINGLETON</span><br><span class="dim">PATTERN</span></h1>
+    <p class="subtitle">One instance. Global access. Four implementations. Thread safety deep-dive. 8 challenges with solutions.</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('baseline')">① BASELINE</button>
+    <button class="tab-btn" onclick="switchTab('problem')">② PROBLEM</button>
+    <button class="tab-btn" onclick="switchTab('deep')">③ DEEP DIVE</button>
+    <button class="tab-btn" onclick="switchTab('refactor')">④ REFACTORED</button>
+    <button class="tab-btn" onclick="switchTab('challenges')">⑤ CHALLENGES</button>
+    <button class="tab-btn" onclick="switchTab('solutions')">⑥ SOLUTIONS</button>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- PANEL 1: BASELINE -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div id="panel-baseline" class="panel active">
+    <div class="section-label">&gt; STEP_01</div>
+    <h2>THE BASELINE APP</h2>
+    <p>A game config manager. Stores volume, brightness, difficulty, and resolution. Any part of the game can read or write settings. Simple beginner code — no patterns yet.</p>
+
+    <div class="config-display">
+      <div class="config-row"><span class="config-key">VOLUME</span><div class="config-bar"><div class="config-bar-fill" style="width:70%"></div></div><span class="config-val">70</span></div>
+      <div class="config-row"><span class="config-key">BRIGHTNESS</span><div class="config-bar"><div class="config-bar-fill" style="width:80%;background:var(--accent2);box-shadow:0 0 6px var(--accent2)"></div></div><span class="config-val">80</span></div>
+      <div class="config-row"><span class="config-key">DIFFICULTY</span><div class="config-bar"><div class="config-bar-fill" style="width:60%;background:var(--accent3);box-shadow:0 0 6px var(--accent3)"></div></div><span class="config-val">HARD</span></div>
+      <div class="config-row"><span class="config-key">RESOLUTION</span><span class="config-val" style="color:var(--accent4)">1920x1080</span></div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameConfig.java</span><span class="code-lang">Java — Plain class</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">GameConfig</span> {
+
+    <span class="kw">private int</span>    volume     = <span class="nu">70</span>;
+    <span class="kw">private int</span>    brightness = <span class="nu">80</span>;
+    <span class="kw">private</span> <span class="cl">String</span> difficulty = <span class="st">"NORMAL"</span>;
+    <span class="kw">private</span> <span class="cl">String</span> resolution = <span class="st">"1920x1080"</span>;
+
+    <span class="kw">public int</span>    <span class="fn">getVolume</span>()     { <span class="kw">return</span> volume; }
+    <span class="kw">public int</span>    <span class="fn">getBrightness</span>() { <span class="kw">return</span> brightness; }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDifficulty</span>() { <span class="kw">return</span> difficulty; }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getResolution</span>() { <span class="kw">return</span> resolution; }
+
+    <span class="kw">public void</span> <span class="fn">setVolume</span>    (<span class="kw">int</span> v)    { volume     = v; }
+    <span class="kw">public void</span> <span class="fn">setBrightness</span>(<span class="kw">int</span> b)    { brightness = b; }
+    <span class="kw">public void</span> <span class="fn">setDifficulty</span>(<span class="cl">String</span> d) { difficulty = d; }
+    <span class="kw">public void</span> <span class="fn">setResolution</span>(<span class="cl">String</span> r) { resolution = r; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">toString</span>() {
+        <span class="kw">return</span> <span class="cl">String</span>.<span class="fn">format</span>(
+            <span class="st">"[CONFIG] vol:%d bright:%d diff:%s res:%s"</span>,
+            volume, brightness, difficulty, resolution
+        );
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Main.java — The Problem is Already Here</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Main</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+
+        <span class="cm">// AudioSystem creates its own config object</span>
+        <span class="cl">GameConfig</span> audioConfig = <span class="kw">new</span> <span class="cl">GameConfig</span>();
+        audioConfig.<span class="fn">setVolume</span>(<span class="nu">50</span>); <span class="cm">// player turned it down</span>
+
+        <span class="cm">// GraphicsSystem creates a completely different config object</span>
+        <span class="cl">GameConfig</span> graphicsConfig = <span class="kw">new</span> <span class="cl">GameConfig</span>();
+        graphicsConfig.<span class="fn">setBrightness</span>(<span class="nu">90</span>); <span class="cm">// player turned it up</span>
+
+        <span class="cm">// Are these the same settings? NO.</span>
+        <span class="cl">System</span>.out.<span class="fn">println</span>(audioConfig.<span class="fn">getVolume</span>());     <span class="cm">// 50</span>
+        <span class="cl">System</span>.out.<span class="fn">println</span>(graphicsConfig.<span class="fn">getVolume</span>());  <span class="cm">// 70 — default!</span>
+        <span class="cm">// Player changed volume — graphics doesn't know.</span>
+    }
+}</code></pre>
+    </div>
+
+    <div class="callout callout-orange">
+      <div class="callout-title">The Seed of the Problem</div>
+      <p>Every class that needs config creates its own <code>new GameConfig()</code>. Each instance is completely independent. Changes in one are invisible to all others. Click ② to see this fully break.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- PANEL 2: PROBLEM -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div id="panel-problem" class="panel">
+    <div class="section-label">&gt; STEP_02</div>
+    <h2>NEW REQUIREMENTS THAT BREAK IT</h2>
+    <p>The game grows. Now AudioSystem, GraphicsSystem, InputManager, NetworkManager, and the SettingsMenu all need access to the same config. Each creates its own instance. They all diverge immediately.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Every system creates its own config — divergence guaranteed</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">AudioSystem</span> {
+    <span class="kw">private</span> <span class="cl">GameConfig</span> config = <span class="kw">new</span> <span class="cl">GameConfig</span>(); <span class="cm">// instance A</span>
+    <span class="kw">public void</span> <span class="fn">play</span>() { <span class="cm">/* uses config.getVolume() */</span> }
+}
+
+<span class="kw">public class</span> <span class="cl">GraphicsSystem</span> {
+    <span class="kw">private</span> <span class="cl">GameConfig</span> config = <span class="kw">new</span> <span class="cl">GameConfig</span>(); <span class="cm">// instance B — different!</span>
+    <span class="kw">public void</span> <span class="fn">render</span>() { <span class="cm">/* uses config.getBrightness() */</span> }
+}
+
+<span class="kw">public class</span> <span class="cl">SettingsMenu</span> {
+    <span class="kw">private</span> <span class="cl">GameConfig</span> config = <span class="kw">new</span> <span class="cl">GameConfig</span>(); <span class="cm">// instance C — also different!</span>
+
+    <span class="kw">public void</span> <span class="fn">onVolumeSlider</span>(<span class="kw">int</span> v) {
+        config.<span class="fn">setVolume</span>(v); <span class="cm">// writes to C only</span>
+        <span class="cm">// AudioSystem's config (A) never gets this update.</span>
+        <span class="cm">// Player changes volume — game audio doesn't respond.</span>
+    }
+}</code></pre>
+    </div>
+
+    <div class="warn-box">
+      <div class="warn-title">⚠ THE BUG</div>
+      <p>Player opens the Settings Menu, slides volume to 20. Closes the menu. Audio is still at 70. The menu wrote to its own config copy, not the AudioSystem's copy. This is a real, hard-to-diagnose bug.</p>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <span class="tag tag-red">Problem</span>
+        <h3>State Divergence</h3>
+        <p>Five config instances drift apart immediately. There is no "current" config — there are five competing versions of truth.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Problem</span>
+        <h3>Wasted Memory</h3>
+        <p>N systems = N identical config objects in memory. For a lightweight config this is trivial — for a database connection pool it is catastrophic.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Problem</span>
+        <h3>No Coordination</h3>
+        <p>A "save to disk" call on one instance doesn't include changes made to other instances. Saves are incomplete.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Problem</span>
+        <h3>Constructor Pollution</h3>
+        <p>Every class that needs config must receive it via constructor injection or create its own — leading to messy, deeply coupled constructors.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-green">
+      <div class="callout-title">The Core Insight</div>
+      <p>Some objects should only ever exist <strong>once</strong>. A game can't have two sets of settings. A printer has one print queue. A system has one clock. The Singleton Pattern guarantees that a class has exactly one instance and provides a global access point to it.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- PANEL 3: DEEP DIVE -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div id="panel-deep" class="panel">
+    <div class="section-label">&gt; STEP_03</div>
+    <h2>DEEP DIVE</h2>
+    <p>Singleton is the most controversial GoF pattern. It's simple to implement badly and subtle to implement correctly. This panel covers all four implementations, thread safety in depth, and when NOT to use it.</p>
+
+    <!-- Diagram 1: Structure -->
+    <h3>Diagram 1 — Singleton Structure</h3>
+    <p>There are only three moving parts. The private constructor prevents outside instantiation. The static field holds the one instance. The static <code>getInstance()</code> method is the single access point.</p>
+    <div class="diagram-wrap">
+      <svg width="540" height="200" viewBox="0 0 540 200" xmlns="http://www.w3.org/2000/svg" font-family="Fira Code, monospace" font-size="11">
+        <defs>
+          <marker id="sg-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#39ff14"/>
+          </marker>
+        </defs>
+        <!-- Singleton class box -->
+        <rect x="160" y="20" width="220" height="150" rx="4" fill="#0e120e" stroke="#39ff14" stroke-width="1.5"/>
+        <!-- Header separator -->
+        <line x1="160" y1="52" x2="380" y2="52" stroke="#39ff14" stroke-width="0.5" opacity="0.4"/>
+        <line x1="160" y1="100" x2="380" y2="100" stroke="#1e2a1e" stroke-width="1"/>
+        <!-- Class name -->
+        <text x="270" y="38" text-anchor="middle" fill="#39ff14" font-size="14" font-weight="700" style="text-shadow: 0 0 8px #39ff14">GameConfig</text>
+        <!-- Fields section -->
+        <text x="175" y="68" fill="#4a6b4a" font-size="9" letter-spacing="0.1em">FIELDS</text>
+        <text x="175" y="85" fill="#8be9fd" font-size="11">- instance: GameConfig</text>
+        <!-- Methods section -->
+        <text x="175" y="115" fill="#4a6b4a" font-size="9" letter-spacing="0.1em">METHODS</text>
+        <text x="175" y="131" fill="#50fa7b" font-size="11">+ getInstance(): GameConfig</text>
+        <text x="175" y="148" fill="#4a6b4a" font-size="11">- GameConfig()  ← private!</text>
+        <!-- static underlines -->
+        <line x1="175" y1="89" x2="315" y2="89" stroke="#4a6b4a" stroke-width="0.8"/>
+        <line x1="175" y1="135" x2="320" y2="135" stroke="#4a6b4a" stroke-width="0.8"/>
+
+        <!-- Client A -->
+        <rect x="10" y="60" width="120" height="36" rx="3" fill="#0e120e" stroke="#1e2a1e"/>
+        <text x="70" y="83" text-anchor="middle" fill="#d4e8d4" font-size="11">AudioSystem</text>
+        <line x1="130" y1="78" x2="158" y2="95" stroke="#39ff14" stroke-width="1.2" marker-end="url(#sg-arr)"/>
+        <text x="144" y="73" fill="#4a6b4a" font-size="9">getInstance()</text>
+
+        <!-- Client B -->
+        <rect x="10" y="118" width="120" height="36" rx="3" fill="#0e120e" stroke="#1e2a1e"/>
+        <text x="70" y="141" text-anchor="middle" fill="#d4e8d4" font-size="11">SettingsMenu</text>
+        <line x1="130" y1="130" x2="158" y2="120" stroke="#39ff14" stroke-width="1.2" marker-end="url(#sg-arr)"/>
+        <text x="144" y="153" fill="#4a6b4a" font-size="9">getInstance()</text>
+
+        <!-- Same instance annotation -->
+        <rect x="410" y="60" width="120" height="60" rx="3" fill="#060906" stroke="#39ff14" stroke-width="1" stroke-dasharray="5,3"/>
+        <text x="470" y="82" text-anchor="middle" fill="#39ff14" font-size="11">SAME</text>
+        <text x="470" y="98" text-anchor="middle" fill="#39ff14" font-size="11">INSTANCE</text>
+        <text x="470" y="112" text-anchor="middle" fill="#4a6b4a" font-size="9">always returned</text>
+        <line x1="380" y1="90" x2="408" y2="90" stroke="#39ff14" stroke-width="1" stroke-dasharray="3,2"/>
+      </svg>
+    </div>
+
+    <!-- Diagram 2: Thread Race -->
+    <h3 style="margin-top:18px">Diagram 2 — The Thread Race Condition</h3>
+    <p>The naive implementation has a critical flaw: two threads can both see <code>instance == null</code> simultaneously and both create a new object. The result is two singletons — the exact problem we were trying to prevent.</p>
+    <div class="diagram-wrap">
+      <svg width="580" height="220" viewBox="0 0 580 220" xmlns="http://www.w3.org/2000/svg" font-family="Fira Code, monospace" font-size="11">
+        <!-- Thread labels -->
+        <text x="100" y="18" text-anchor="middle" fill="#00d4ff" font-size="12" font-weight="600">THREAD-1</text>
+        <text x="390" y="18" text-anchor="middle" fill="#ff9f1c" font-size="12" font-weight="600">THREAD-2</text>
+        <!-- Timeline bars -->
+        <line x1="100" y1="24" x2="100" y2="205" stroke="#00d4ff" stroke-width="1.5" opacity="0.3"/>
+        <line x1="390" y1="24" x2="390" y2="205" stroke="#ff9f1c" stroke-width="1.5" opacity="0.3"/>
+
+        <!-- Step 1: Both check null -->
+        <rect x="20" y="35" width="160" height="30" rx="3" fill="#0e120e" stroke="#00d4ff"/>
+        <text x="100" y="55" text-anchor="middle" fill="#00d4ff" font-size="10">instance == null? YES</text>
+        <rect x="310" y="35" width="160" height="30" rx="3" fill="#0e120e" stroke="#ff9f1c"/>
+        <text x="390" y="55" text-anchor="middle" fill="#ff9f1c" font-size="10">instance == null? YES</text>
+        <text x="275" y="53" text-anchor="middle" fill="#4a6b4a" font-size="9">same time</text>
+        <line x1="180" y1="50" x2="310" y2="50" stroke="#4a6b4a" stroke-width="1" stroke-dasharray="3,2"/>
+
+        <!-- Step 2: Both enter if block -->
+        <rect x="20" y="85" width="160" height="30" rx="3" fill="#0e120e" stroke="#00d4ff"/>
+        <text x="100" y="105" text-anchor="middle" fill="#00d4ff" font-size="10">enters if block</text>
+        <rect x="310" y="85" width="160" height="30" rx="3" fill="#0e120e" stroke="#ff9f1c"/>
+        <text x="390" y="105" text-anchor="middle" fill="#ff9f1c" font-size="10">enters if block</text>
+
+        <!-- Step 3: Both create -->
+        <rect x="20" y="135" width="160" height="30" rx="3" fill="#0e120e" stroke="#ff3864" stroke-width="1.5"/>
+        <text x="100" y="155" text-anchor="middle" fill="#ff3864" font-size="10">new GameConfig() ← #1</text>
+        <rect x="310" y="135" width="160" height="30" rx="3" fill="#0e120e" stroke="#ff3864" stroke-width="1.5"/>
+        <text x="390" y="155" text-anchor="middle" fill="#ff3864" font-size="10">new GameConfig() ← #2</text>
+        <text x="275" y="150" text-anchor="middle" fill="#ff3864" font-size="20">✗</text>
+
+        <!-- Result -->
+        <rect x="165" y="185" width="230" height="26" rx="3" fill="rgba(255,56,100,0.1)" stroke="#ff3864"/>
+        <text x="280" y="202" text-anchor="middle" fill="#ff3864" font-size="10">TWO INSTANCES — singleton broken!</text>
+
+        <!-- Down arrows -->
+        <line x1="100" y1="65" x2="100" y2="85" stroke="#00d4ff" stroke-width="1" marker-end="url(#sg-arr)"/>
+        <line x1="390" y1="65" x2="390" y2="85" stroke="#ff9f1c" stroke-width="1" marker-end="url(#sg-arr)"/>
+        <line x1="100" y1="115" x2="100" y2="135" stroke="#00d4ff" stroke-width="1" marker-end="url(#sg-arr)"/>
+        <line x1="390" y1="115" x2="390" y2="135" stroke="#ff9f1c" stroke-width="1" marker-end="url(#sg-arr)"/>
+        <line x1="100" y1="165" x2="220" y2="185" stroke="#ff3864" stroke-width="1"/>
+        <line x1="390" y1="165" x2="340" y2="185" stroke="#ff3864" stroke-width="1"/>
+        <defs><marker id="sg-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#39ff14"/></marker></defs>
+      </svg>
+    </div>
+
+    <!-- Diagram 3: DCL Fix -->
+    <h3 style="margin-top:18px">Diagram 3 — Double-Checked Locking Fix</h3>
+    <p>The solution: check null twice — once without the lock (fast path for the 99.9% case), once inside the lock (safety for the race condition). The <code>volatile</code> keyword prevents the JVM from partially constructing the object before assigning the reference.</p>
+    <div class="diagram-wrap">
+      <svg width="540" height="200" viewBox="0 0 540 200" xmlns="http://www.w3.org/2000/svg" font-family="Fira Code, monospace" font-size="11">
+        <!-- Flow boxes -->
+        <rect x="190" y="10" width="160" height="32" rx="3" fill="#0e120e" stroke="#39ff14"/>
+        <text x="270" y="31" text-anchor="middle" fill="#39ff14" font-size="11">instance == null?</text>
+
+        <!-- NO path -->
+        <line x1="350" y1="26" x2="430" y2="26" stroke="#4a6b4a" stroke-width="1.2"/>
+        <rect x="432" y="10" width="100" height="32" rx="3" fill="#0e120e" stroke="#4a6b4a"/>
+        <text x="482" y="31" text-anchor="middle" fill="#4a6b4a" font-size="10">return instance</text>
+        <text x="390" y="20" fill="#4a6b4a" font-size="9">NO (99.9%)</text>
+
+        <!-- YES path down -->
+        <line x1="270" y1="42" x2="270" y2="62" stroke="#39ff14" stroke-width="1.2"/>
+        <text x="279" y="58" fill="#39ff14" font-size="9">YES</text>
+
+        <!-- Acquire lock -->
+        <rect x="170" y="64" width="200" height="30" rx="3" fill="#0e120e" stroke="#ff9f1c"/>
+        <text x="270" y="84" text-anchor="middle" fill="#ff9f1c" font-size="11">acquire lock (sync)</text>
+        <line x1="270" y1="94" x2="270" y2="112" stroke="#ff9f1c" stroke-width="1.2"/>
+
+        <!-- 2nd null check -->
+        <rect x="170" y="114" width="200" height="30" rx="3" fill="#0e120e" stroke="#39ff14"/>
+        <text x="270" y="134" text-anchor="middle" fill="#39ff14" font-size="11">STILL null?</text>
+
+        <!-- NO path from 2nd check -->
+        <line x1="370" y1="129" x2="432" y2="129" stroke="#4a6b4a" stroke-width="1.2"/>
+        <rect x="432" y="114" width="100" height="30" rx="3" fill="#0e120e" stroke="#4a6b4a"/>
+        <text x="482" y="133" text-anchor="middle" fill="#4a6b4a" font-size="10">return instance</text>
+        <text x="400" y="120" fill="#4a6b4a" font-size="9">NO</text>
+
+        <!-- YES → create -->
+        <line x1="270" y1="144" x2="270" y2="162" stroke="#39ff14" stroke-width="1.2"/>
+        <text x="279" y="160" fill="#39ff14" font-size="9">YES</text>
+        <rect x="170" y="164" width="200" height="30" rx="3" fill="#0e120e" stroke="#bf5af2"/>
+        <text x="270" y="184" text-anchor="middle" fill="#bf5af2" font-size="11">new GameConfig() ← safe</text>
+
+        <!-- volatile annotation -->
+        <text x="10" y="30" fill="#ff9f1c" font-size="9" font-style="italic">volatile</text>
+        <text x="10" y="42" fill="#4a6b4a" font-size="9">prevents</text>
+        <text x="10" y="54" fill="#4a6b4a" font-size="9">partial init</text>
+        <line x1="75" y1="37" x2="188" y2="26" stroke="#ff9f1c" stroke-width="0.8" stroke-dasharray="3,2"/>
+      </svg>
+    </div>
+
+    <hr class="div">
+
+    <div class="section-label">&gt; FOUR_IMPLEMENTATIONS</div>
+    <div class="variant-grid">
+      <div class="variant">
+        <div class="variant-title" style="color:var(--accent3)">Naive</div>
+        <div class="variant-sub">Lazy, NOT thread-safe</div>
+        <p>Checks null and creates if absent. Works in single-threaded apps. Race condition under concurrency. Never use in production.</p>
+        <span class="tag tag-red">Single thread only</span>
+      </div>
+      <div class="variant">
+        <div class="variant-title" style="color:var(--accent2)">Eager</div>
+        <div class="variant-sub">Thread-safe, always initialised</div>
+        <p>Instance created when class loads. Thread-safe by JVM guarantee. Downside: initialised even if never used (wasted resources if expensive).</p>
+        <span class="tag tag-orange">Safe but wasteful</span>
+      </div>
+      <div class="variant">
+        <div class="variant-title" style="color:var(--accent4)">DCL</div>
+        <div class="variant-sub">Double-Checked Locking</div>
+        <p>Lazy + thread-safe. Checks null twice — once without lock, once inside. Requires <code>volatile</code>. The classic production approach.</p>
+        <span class="tag tag-blue">Production ready</span>
+      </div>
+      <div class="variant">
+        <div class="variant-title" style="color:var(--accent)">Holder</div>
+        <div class="variant-sub">Bill Pugh / Static inner class</div>
+        <p>Uses class-loading guarantee. Lazy, thread-safe, no <code>synchronized</code> overhead. Considered the cleanest Java approach by most experts.</p>
+        <span class="tag tag-green">Best practice</span>
+      </div>
+    </div>
+
+    <hr class="div">
+
+    <div class="section-label">&gt; WHEN_NOT_TO_USE</div>
+    <ol class="steps">
+      <li>
+        <div>
+          <strong>When you need testability</strong>
+          Singletons are notoriously hard to unit test. A test that mutates the singleton pollutes every subsequent test. Solution: inject the config as a dependency instead of calling <code>getInstance()</code> directly. The singleton can still exist — just don't call it from inside your classes.
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>When you need multiple environments</strong>
+          A singleton config can't be "dev config" and "prod config" simultaneously. If you need environment-specific instances, a factory or dependency injection container is more appropriate.
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>When the class has mutable state that's frequently written</strong>
+          A shared mutable singleton is a concurrency hazard. If many threads write to it constantly, synchronisation overhead kills performance. Consider immutable config objects or a message-passing design instead.
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>When you're reaching for it just to avoid passing arguments</strong>
+          "Global variable with extra steps" is a real anti-pattern. If you're using Singleton purely to avoid threading config through constructors, dependency injection (Spring, Guice) solves the same problem with far less risk.
+        </div>
+      </li>
+    </ol>
+
+    <div class="callout callout-purple">
+      <div class="callout-title">The Classic Tradeoff</div>
+      <p>Singleton solves a real problem (one shared state, global access) at a real cost (hidden coupling, test difficulty, concurrency risk). Use it deliberately — not as a default for anything you want globally accessible.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- PANEL 4: REFACTORED -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div id="panel-refactor" class="panel">
+    <div class="section-label">&gt; STEP_04</div>
+    <h2>REFACTORED — ALL FOUR IMPLEMENTATIONS</h2>
+    <p>All four Singleton variants on the same <code>GameConfig</code> class. Compare the trade-offs side by side.</p>
+
+    <div class="callout callout-red"><div class="callout-title">Variant 1 — Naive (DO NOT USE in multithreaded code)</div><p>Shown for educational purposes only. Race condition exists between the null check and object creation.</p></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameConfig.java — Naive Lazy Singleton</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">GameConfig</span> {
+
+    <span class="cm">// Step 1: static field holds the one instance</span>
+    <span class="kw">private static</span> <span class="cl">GameConfig</span> instance = <span class="kw">null</span>;
+
+    <span class="cm">// Step 2: private constructor — no outside 'new GameConfig()'</span>
+    <span class="kw">private</span> <span class="fn">GameConfig</span>() {
+        <span class="cm">// initialise defaults</span>
+    }
+
+    <span class="cm">// Step 3: public static access point</span>
+    <span class="kw">public static</span> <span class="cl">GameConfig</span> <span class="fn">getInstance</span>() {
+        <span class="kw">if</span> (instance == <span class="kw">null</span>) {               <span class="cm">// ← RACE CONDITION HERE</span>
+            instance = <span class="kw">new</span> <span class="cl">GameConfig</span>();    <span class="cm">// two threads can both reach this</span>
+        }
+        <span class="kw">return</span> instance;
+    }
+
+    <span class="cm">// ... fields and methods unchanged ...</span>
+}</code></pre>
+    </div>
+
+    <hr class="div">
+
+    <div class="callout callout-orange"><div class="callout-title">Variant 2 — Eager Initialisation</div><p>Thread-safe by JVM class-loading guarantee. Simple and reliable. Only downside: always initialised at class load time.</p></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameConfig.java — Eager Singleton</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">GameConfig</span> {
+
+    <span class="cm">// Created when the class is first loaded by the JVM.
+    // The JVM guarantees static initialisers run exactly once.
+    // Thread-safe with zero synchronisation overhead.</span>
+    <span class="kw">private static final</span> <span class="cl">GameConfig</span> INSTANCE = <span class="kw">new</span> <span class="cl">GameConfig</span>();
+
+    <span class="kw">private</span> <span class="fn">GameConfig</span>() {}
+
+    <span class="kw">public static</span> <span class="cl">GameConfig</span> <span class="fn">getInstance</span>() {
+        <span class="kw">return</span> INSTANCE; <span class="cm">// always ready, no null check needed</span>
+    }
+
+    <span class="cm">// ... fields and methods ...</span>
+}</code></pre>
+    </div>
+
+    <hr class="div">
+
+    <div class="callout callout-blue"><div class="callout-title">Variant 3 — Double-Checked Locking (DCL)</div><p>Lazy + thread-safe. The <code>volatile</code> keyword is mandatory — without it, the JVM may publish a partially-constructed object reference.</p></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameConfig.java — DCL Singleton</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">GameConfig</span> {
+
+    <span class="cm">// volatile: prevents JVM instruction reordering.
+    // Without volatile, another thread could see a non-null
+    // but not-yet-fully-constructed instance.</span>
+    <span class="kw">private static volatile</span> <span class="cl">GameConfig</span> instance;
+
+    <span class="kw">private</span> <span class="fn">GameConfig</span>() {}
+
+    <span class="kw">public static</span> <span class="cl">GameConfig</span> <span class="fn">getInstance</span>() {
+        <span class="kw">if</span> (instance == <span class="kw">null</span>) {                  <span class="cm">// 1st check — no lock (fast path)</span>
+            <span class="kw">synchronized</span> (<span class="cl">GameConfig</span>.<span class="kw">class</span>) {   <span class="cm">// acquire lock</span>
+                <span class="kw">if</span> (instance == <span class="kw">null</span>) {          <span class="cm">// 2nd check — inside lock (safe)</span>
+                    instance = <span class="kw">new</span> <span class="cl">GameConfig</span>();
+                }
+            }
+        }
+        <span class="kw">return</span> instance;
+    }
+
+    <span class="cm">// ... fields and methods ...</span>
+}</code></pre>
+    </div>
+
+    <hr class="div">
+
+    <div class="callout callout-green"><div class="callout-title">Variant 4 — Static Holder (Bill Pugh) — Recommended</div><p>Uses the JVM's class-loading guarantee on an inner class. Lazy, thread-safe, zero synchronisation, no <code>volatile</code> needed. This is the cleanest Java Singleton.</p></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameConfig.java — Static Holder Singleton</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">GameConfig</span> {
+
+    <span class="kw">private int</span>    volume     = <span class="nu">70</span>;
+    <span class="kw">private int</span>    brightness = <span class="nu">80</span>;
+    <span class="kw">private</span> <span class="cl">String</span> difficulty = <span class="st">"NORMAL"</span>;
+    <span class="kw">private</span> <span class="cl">String</span> resolution = <span class="st">"1920x1080"</span>;
+
+    <span class="cm">// Private constructor — enforces single instantiation</span>
+    <span class="kw">private</span> <span class="fn">GameConfig</span>() {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[GameConfig] initialised once"</span>);
+    }
+
+    <span class="cm">// The inner class is NOT loaded until getInstance() is called.
+    // When it IS loaded, the JVM guarantees INSTANCE is created
+    // exactly once, thread-safely, with no synchronisation overhead.</span>
+    <span class="kw">private static class</span> <span class="cl">Holder</span> {
+        <span class="kw">static final</span> <span class="cl">GameConfig</span> INSTANCE = <span class="kw">new</span> <span class="cl">GameConfig</span>();
+    }
+
+    <span class="kw">public static</span> <span class="cl">GameConfig</span> <span class="fn">getInstance</span>() {
+        <span class="kw">return</span> <span class="cl">Holder</span>.INSTANCE;
+    }
+
+    <span class="cm">// Getters and setters</span>
+    <span class="kw">public int</span>    <span class="fn">getVolume</span>()            { <span class="kw">return</span> volume; }
+    <span class="kw">public void</span>   <span class="fn">setVolume</span>(<span class="kw">int</span> v)        { volume = v; }
+    <span class="kw">public int</span>    <span class="fn">getBrightness</span>()         { <span class="kw">return</span> brightness; }
+    <span class="kw">public void</span>   <span class="fn">setBrightness</span>(<span class="kw">int</span> b)     { brightness = b; }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDifficulty</span>()          { <span class="kw">return</span> difficulty; }
+    <span class="kw">public void</span>   <span class="fn">setDifficulty</span>(<span class="cl">String</span> d)  { difficulty = d; }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getResolution</span>()           { <span class="kw">return</span> resolution; }
+    <span class="kw">public void</span>   <span class="fn">setResolution</span>(<span class="cl">String</span> r)  { resolution = r; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">toString</span>() {
+        <span class="kw">return</span> <span class="cl">String</span>.<span class="fn">format</span>(<span class="st">"[CONFIG] vol:%d bright:%d diff:%s res:%s"</span>,
+            volume, brightness, difficulty, resolution);
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Main.java — Proving One Instance</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Main</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+
+        <span class="cm">// Every system uses getInstance() — same object every time</span>
+        <span class="cl">GameConfig</span> audio    = <span class="cl">GameConfig</span>.<span class="fn">getInstance</span>();
+        <span class="cl">GameConfig</span> graphics = <span class="cl">GameConfig</span>.<span class="fn">getInstance</span>();
+        <span class="cl">GameConfig</span> settings = <span class="cl">GameConfig</span>.<span class="fn">getInstance</span>();
+
+        audio.<span class="fn">setVolume</span>(<span class="nu">50</span>); <span class="cm">// player turns down volume via SettingsMenu</span>
+
+        <span class="cl">System</span>.out.<span class="fn">println</span>(graphics.<span class="fn">getVolume</span>()); <span class="cm">// 50 — not 70! ✓</span>
+        <span class="cl">System</span>.out.<span class="fn">println</span>(settings.<span class="fn">getVolume</span>()); <span class="cm">// 50 ✓</span>
+
+        <span class="cm">// Prove it's the SAME object:</span>
+        <span class="cl">System</span>.out.<span class="fn">println</span>(audio == graphics); <span class="cm">// true ✓</span>
+        <span class="cl">System</span>.out.<span class="fn">println</span>(audio == settings); <span class="cm">// true ✓</span>
+
+        <span class="cm">// Output:
+        // [GameConfig] initialised once  ← constructor called ONCE
+        // 50
+        // 50
+        // true
+        // true</span>
+    }
+}</code></pre>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- PANEL 5: CHALLENGES -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div id="panel-challenges" class="panel">
+    <div class="section-label">&gt; STEP_05</div>
+    <h2>PRACTICE CHALLENGES</h2>
+    <p>Eight challenges — from basic implementation to thread-safety and pattern limits. All build on the Static Holder <code>GameConfig</code> from panel ④.</p>
+
+    <div class="challenge easy">
+      <div class="challenge-meta"><span class="diff diff-easy">LEVEL 1</span><span class="tag tag-green">Challenge 1</span></div>
+      <h3>Prove the Single Instance in Code</h3>
+      <p>Write a <code>ProofTest</code> class that calls <code>GameConfig.getInstance()</code> from three separate methods and verifies all three references point to the same object using <code>==</code>. Then call <code>setVolume()</code> on one reference and verify the change is visible on all three.</p>
+      <div class="callout callout-green" style="margin-top:10px"><div class="callout-title">Goal</div><p>Cement the core guarantee: one instance, shared state, all references see the same data.</p></div>
+    </div>
+
+    <div class="challenge easy">
+      <div class="challenge-meta"><span class="diff diff-easy">LEVEL 1</span><span class="tag tag-green">Challenge 2</span></div>
+      <h3>Add Input Validation to Setters</h3>
+      <p>Add guards: <code>setVolume()</code> should clamp input to [0, 100] and throw <code>IllegalArgumentException</code> for values outside that range. <code>setDifficulty()</code> should only accept "EASY", "NORMAL", or "HARD". Since there is only one instance, invalid state would corrupt the entire game — validate aggressively.</p>
+      <div class="callout callout-green" style="margin-top:10px"><div class="callout-title">Think About</div><p>With a singleton, invalid state isn't just a local problem — it poisons every system that reads from it. Validation at the setter is critical.</p></div>
+    </div>
+
+    <div class="challenge medium">
+      <div class="challenge-meta"><span class="diff diff-medium">LEVEL 2</span><span class="tag tag-orange">Challenge 3</span></div>
+      <h3>Thread-Safety Stress Test</h3>
+      <p>Write a stress test using <code>ExecutorService</code> with 100 threads. Each thread calls <code>GameConfig.getInstance()</code> and stores the reference. After all threads finish, assert that all 100 references are identical. Also add a counter to the private constructor and assert it was called exactly once.</p>
+      <div class="callout callout-orange" style="margin-top:10px"><div class="callout-title">Think About</div><p>Try this with the Naive variant first (it may or may not fail depending on timing — that's the point). Then switch to Static Holder and confirm it always passes.</p></div>
+    </div>
+
+    <div class="challenge medium">
+      <div class="challenge-meta"><span class="diff diff-medium">LEVEL 2</span><span class="tag tag-orange">Challenge 4</span></div>
+      <h3>Save and Load Config</h3>
+      <p>Add <code>saveToFile(String path)</code> and <code>loadFromFile(String path)</code> methods to <code>GameConfig</code> using <code>java.util.Properties</code>. When the game starts, call <code>loadFromFile("config.properties")</code> on the singleton. Verify that settings persist across simulated restarts.</p>
+      <div class="callout callout-orange" style="margin-top:10px"><div class="callout-title">Think About</div><p>Should loading happen in the constructor, in a separate <code>init()</code> method, or lazily? What happens if the file doesn't exist yet? What if it's corrupted?</p></div>
+    </div>
+
+    <div class="challenge medium">
+      <div class="challenge-meta"><span class="diff diff-medium">LEVEL 2</span><span class="tag tag-orange">Challenge 5</span></div>
+      <h3>Observer Integration — Notify on Change</h3>
+      <p>Add a listener mechanism: <code>addChangeListener(ConfigChangeListener l)</code> and a <code>@FunctionalInterface ConfigChangeListener</code> with method <code>onConfigChanged(String key, Object newValue)</code>. Whenever a setter is called, notify all registered listeners. <code>AudioSystem</code> should register to listen for volume changes and update its output level automatically.</p>
+      <div class="callout callout-orange" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This combines Singleton (one config) with Observer (reactive updates). This is how real game engines propagate setting changes — the config is the single source of truth and broadcasts changes to interested systems.</p></div>
+    </div>
+
+    <div class="challenge hard">
+      <div class="challenge-meta"><span class="diff diff-hard">LEVEL 3</span><span class="tag tag-red">Challenge 6</span></div>
+      <h3>Make It Testable — Dependency Injection Refactor</h3>
+      <p>The current design makes unit testing impossible — you can't swap the singleton for a mock. Refactor so systems like <code>AudioSystem</code> accept a <code>GameConfig</code> via constructor. The singleton still exists, but it's injected at the wiring point, not fetched inside classes. Write a unit test that passes a test double.</p>
+      <div class="callout callout-red" style="margin-top:10px"><div class="callout-title">The Key Lesson</div><p>This is the canonical critique of Singleton. The fix is not to abolish it but to <em>inject</em> it instead of having callers fetch it. The object is still created once — it's just no longer fetched with a static call from deep inside your logic.</p></div>
+    </div>
+
+    <div class="challenge hard">
+      <div class="challenge-meta"><span class="diff diff-hard">LEVEL 3</span><span class="tag tag-red">Challenge 7</span></div>
+      <h3>Break and Restore the Singleton via Reflection</h3>
+      <p>Use reflection to call the private constructor and create a second <code>GameConfig</code> instance. Prove that the Singleton guarantee is violated. Then add a guard in the constructor that throws <code>IllegalStateException</code> if an instance already exists, making it reflection-proof. Confirm the guard works.</p>
+      <div class="callout callout-red" style="margin-top:10px"><div class="callout-title">Think About</div><p>This is a real attack vector. Libraries like Mockito use reflection to create objects. Understanding the vulnerability helps you decide when to add the guard — and when it's overkill.</p></div>
+    </div>
+
+    <div class="challenge boss">
+      <div class="challenge-meta"><span class="diff diff-boss">BOSS</span><span class="tag tag-purple">Challenge 8</span></div>
+      <h3>Enum Singleton — The Serialisation-Safe Approach</h3>
+      <p>Java's <code>enum</code> guarantees exactly one instance per enum constant — even across serialisation and deserialisation, and even against reflection attacks. Reimplement <code>GameConfig</code> as an <code>enum</code> singleton. Then prove that serialising and deserialising it returns the same instance (not a new copy).</p>
+      <div class="callout callout-purple" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>Joshua Bloch (Effective Java) calls the Enum Singleton "the best way to implement a singleton in Java". Regular Singleton implementations can be broken by serialisation — a deserialized object is a brand new instance with a different identity. Enum prevents this at the language level.</p></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- PANEL 6: SOLUTIONS -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <div id="panel-solutions" class="panel">
+    <div class="section-label">&gt; STEP_06</div>
+    <h2>CHALLENGE SOLUTIONS</h2>
+    <p>Full solutions with design commentary. Always attempt first.</p>
+
+    <!-- S1 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">LEVEL 1</span><span class="tag tag-green">Solution 1 — Prove the Single Instance</span></div><h3>Three references, one object.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">ProofTest.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">ProofTest</span> {
+
+    <span class="kw">static</span> <span class="cl">GameConfig</span> <span class="fn">fromAudio</span>()    { <span class="kw">return</span> <span class="cl">GameConfig</span>.<span class="fn">getInstance</span>(); }
+    <span class="kw">static</span> <span class="cl">GameConfig</span> <span class="fn">fromGraphics</span>() { <span class="kw">return</span> <span class="cl">GameConfig</span>.<span class="fn">getInstance</span>(); }
+    <span class="kw">static</span> <span class="cl">GameConfig</span> <span class="fn">fromSettings</span>() { <span class="kw">return</span> <span class="cl">GameConfig</span>.<span class="fn">getInstance</span>(); }
+
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+        <span class="cl">GameConfig</span> a = <span class="fn">fromAudio</span>();
+        <span class="cl">GameConfig</span> g = <span class="fn">fromGraphics</span>();
+        <span class="cl">GameConfig</span> s = <span class="fn">fromSettings</span>();
+
+        <span class="cm">// All same object?</span>
+        <span class="cl">System</span>.out.<span class="fn">println</span>(a == g); <span class="cm">// true ✓</span>
+        <span class="cl">System</span>.out.<span class="fn">println</span>(a == s); <span class="cm">// true ✓</span>
+
+        <span class="cm">// Change propagates?</span>
+        a.<span class="fn">setVolume</span>(<span class="nu">42</span>);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(g.<span class="fn">getVolume</span>()); <span class="cm">// 42 ✓</span>
+        <span class="cl">System</span>.out.<span class="fn">println</span>(s.<span class="fn">getVolume</span>()); <span class="cm">// 42 ✓</span>
+    }
+}</code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S2 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">LEVEL 1</span><span class="tag tag-green">Solution 2 — Input Validation</span></div><h3>Guards at the setter level protect the whole game.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameConfig.java — validated setters</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">private static final</span> <span class="cl">Set</span>&lt;<span class="cl">String</span>&gt; VALID_DIFFICULTIES =
+    <span class="cl">Set</span>.<span class="fn">of</span>(<span class="st">"EASY"</span>, <span class="st">"NORMAL"</span>, <span class="st">"HARD"</span>);
+
+<span class="kw">public void</span> <span class="fn">setVolume</span>(<span class="kw">int</span> v) {
+    <span class="kw">if</span> (v < <span class="nu">0</span> || v > <span class="nu">100</span>)
+        <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(
+            <span class="st">"Volume must be 0–100, got: "</span> + v);
+    volume = v;
+}
+
+<span class="kw">public void</span> <span class="fn">setDifficulty</span>(<span class="cl">String</span> d) {
+    <span class="kw">if</span> (!VALID_DIFFICULTIES.<span class="fn">contains</span>(d))
+        <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(
+            <span class="st">"Unknown difficulty: "</span> + d + <span class="st">". Use: "</span> + VALID_DIFFICULTIES);
+    difficulty = d;
+}
+
+<span class="cm">// setBrightness() same pattern as setVolume()
+// Validation is more important in a Singleton because bad state
+// is globally visible — it affects the entire running application.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S3 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">LEVEL 2</span><span class="tag tag-orange">Solution 3 — Thread-Safety Stress Test</span></div><h3>100 threads, one instance, zero races.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">SingletonStressTest.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.*;
+<span class="kw">import</span> java.util.concurrent.*;
+
+<span class="kw">public class</span> <span class="cl">SingletonStressTest</span> {
+
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) <span class="kw">throws</span> <span class="cl">InterruptedException</span> {
+        <span class="kw">int</span> THREADS = <span class="nu">100</span>;
+        <span class="cl">Set</span>&lt;<span class="cl">GameConfig</span>&gt; seen = <span class="cl">Collections</span>.<span class="fn">synchronizedSet</span>(<span class="kw">new</span> <span class="cl">HashSet</span>&lt;&gt;());
+        <span class="cl">ExecutorService</span> pool = <span class="cl">Executors</span>.<span class="fn">newFixedThreadPool</span>(THREADS);
+        <span class="cl">CountDownLatch</span> latch = <span class="kw">new</span> <span class="cl">CountDownLatch</span>(<span class="nu">1</span>); <span class="cm">// start all at once</span>
+
+        <span class="kw">for</span> (<span class="kw">int</span> i = <span class="nu">0</span>; i < THREADS; i++) {
+            pool.<span class="fn">submit</span>(() -> {
+                <span class="kw">try</span> { latch.<span class="fn">await</span>(); } <span class="kw">catch</span> (<span class="cl">InterruptedException</span> e) {}
+                seen.<span class="fn">add</span>(<span class="cl">GameConfig</span>.<span class="fn">getInstance</span>()); <span class="cm">// all threads race here</span>
+            });
+        }
+
+        latch.<span class="fn">countDown</span>(); <span class="cm">// release all threads simultaneously</span>
+        pool.<span class="fn">shutdown</span>();
+        pool.<span class="fn">awaitTermination</span>(<span class="nu">5</span>, <span class="cl">TimeUnit</span>.SECONDS);
+
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Unique instances: "</span> + seen.<span class="fn">size</span>());
+        <span class="cm">// Static Holder → always prints: Unique instances: 1 ✓
+        // Naive variant  → may print:   Unique instances: 2+ ✗</span>
+
+        <span class="kw">assert</span> seen.<span class="fn">size</span>() == <span class="nu">1</span> : <span class="st">"Singleton violated!"</span>;
+    }
+}</code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S4 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">LEVEL 2</span><span class="tag tag-orange">Solution 4 — Save and Load Config</span></div><h3>Properties file persistence on the singleton.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameConfig.java — persistence methods</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public void</span> <span class="fn">saveToFile</span>(<span class="cl">String</span> path) {
+    <span class="cl">Properties</span> props = <span class="kw">new</span> <span class="cl">Properties</span>();
+    props.<span class="fn">setProperty</span>(<span class="st">"volume"</span>,     <span class="cl">String</span>.<span class="fn">valueOf</span>(volume));
+    props.<span class="fn">setProperty</span>(<span class="st">"brightness"</span>, <span class="cl">String</span>.<span class="fn">valueOf</span>(brightness));
+    props.<span class="fn">setProperty</span>(<span class="st">"difficulty"</span>, difficulty);
+    props.<span class="fn">setProperty</span>(<span class="st">"resolution"</span>, resolution);
+    <span class="kw">try</span> (<span class="cl">FileWriter</span> fw = <span class="kw">new</span> <span class="cl">FileWriter</span>(path)) {
+        props.<span class="fn">store</span>(fw, <span class="st">"Game Config"</span>);
+    } <span class="kw">catch</span> (<span class="cl">IOException</span> e) {
+        <span class="cl">System</span>.err.<span class="fn">println</span>(<span class="st">"Save failed: "</span> + e.<span class="fn">getMessage</span>());
+    }
+}
+
+<span class="kw">public void</span> <span class="fn">loadFromFile</span>(<span class="cl">String</span> path) {
+    <span class="cl">File</span> f = <span class="kw">new</span> <span class="cl">File</span>(path);
+    <span class="kw">if</span> (!f.<span class="fn">exists</span>()) {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"No config file found — using defaults."</span>);
+        <span class="kw">return</span>;
+    }
+    <span class="cl">Properties</span> props = <span class="kw">new</span> <span class="cl">Properties</span>();
+    <span class="kw">try</span> (<span class="cl">FileReader</span> fr = <span class="kw">new</span> <span class="cl">FileReader</span>(f)) {
+        props.<span class="fn">load</span>(fr);
+        volume     = <span class="cl">Integer</span>.<span class="fn">parseInt</span>(props.<span class="fn">getProperty</span>(<span class="st">"volume"</span>,     <span class="st">"70"</span>));
+        brightness = <span class="cl">Integer</span>.<span class="fn">parseInt</span>(props.<span class="fn">getProperty</span>(<span class="st">"brightness"</span>, <span class="st">"80"</span>));
+        difficulty = props.<span class="fn">getProperty</span>(<span class="st">"difficulty"</span>, <span class="st">"NORMAL"</span>);
+        resolution = props.<span class="fn">getProperty</span>(<span class="st">"resolution"</span>, <span class="st">"1920x1080"</span>);
+    } <span class="kw">catch</span> (<span class="cl">IOException</span> e) {
+        <span class="cl">System</span>.err.<span class="fn">println</span>(<span class="st">"Load failed: "</span> + e.<span class="fn">getMessage</span>());
+    }
+}
+
+<span class="cm">// Usage at game startup:
+// GameConfig.getInstance().loadFromFile("config.properties");</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S5 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">LEVEL 2</span><span class="tag tag-orange">Solution 5 — Observer Integration</span></div><h3>Singleton as the broadcast hub.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">ConfigChangeListener.java + GameConfig.java (updated)</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="an">@FunctionalInterface</span>
+<span class="kw">public interface</span> <span class="cl">ConfigChangeListener</span> {
+    <span class="kw">void</span> <span class="fn">onConfigChanged</span>(<span class="cl">String</span> key, <span class="cl">Object</span> newValue);
+}
+
+<span class="cm">// Inside GameConfig:</span>
+<span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">ConfigChangeListener</span>&gt; listeners = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+
+<span class="kw">public void</span> <span class="fn">addChangeListener</span>(<span class="cl">ConfigChangeListener</span> l) { listeners.<span class="fn">add</span>(l); }
+
+<span class="kw">private void</span> <span class="fn">notify</span>(<span class="cl">String</span> key, <span class="cl">Object</span> val) {
+    listeners.<span class="fn">forEach</span>(l -> l.<span class="fn">onConfigChanged</span>(key, val));
+}
+
+<span class="kw">public void</span> <span class="fn">setVolume</span>(<span class="kw">int</span> v) {
+    volume = v;
+    <span class="fn">notify</span>(<span class="st">"volume"</span>, v); <span class="cm">// broadcast to all listeners</span>
+}
+
+<span class="cm">// AudioSystem registers at startup:</span>
+<span class="cl">GameConfig</span>.<span class="fn">getInstance</span>().<span class="fn">addChangeListener</span>((key, val) -> {
+    <span class="kw">if</span> (<span class="st">"volume"</span>.<span class="fn">equals</span>(key)) {
+        audioEngine.<span class="fn">setMasterVolume</span>((<span class="cl">Integer</span>) val);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[Audio] volume updated to: "</span> + val);
+    }
+});
+
+<span class="cm">// Now: GameConfig.getInstance().setVolume(30);
+// → [Audio] volume updated to: 30  (automatic, no polling) ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S6 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">LEVEL 3</span><span class="tag tag-red">Solution 6 — Make It Testable</span></div><h3>Inject the singleton instead of fetching it inside classes.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">AudioSystem.java — before and after</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// ❌ BEFORE — untestable, hidden dependency</span>
+<span class="kw">public class</span> <span class="cl">AudioSystem</span> {
+    <span class="kw">public void</span> <span class="fn">play</span>() {
+        <span class="kw">int</span> vol = <span class="cl">GameConfig</span>.<span class="fn">getInstance</span>().<span class="fn">getVolume</span>(); <span class="cm">// static call inside logic</span>
+        <span class="cm">// Can't swap GameConfig in a unit test</span>
+    }
+}
+
+<span class="cm">// ✓ AFTER — testable, injected dependency</span>
+<span class="kw">public class</span> <span class="cl">AudioSystem</span> {
+    <span class="kw">private final</span> <span class="cl">GameConfig</span> config; <span class="cm">// injected, not fetched</span>
+
+    <span class="kw">public</span> <span class="fn">AudioSystem</span>(<span class="cl">GameConfig</span> config) {
+        <span class="kw">this</span>.config = config;
+    }
+
+    <span class="kw">public void</span> <span class="fn">play</span>() {
+        <span class="kw">int</span> vol = config.<span class="fn">getVolume</span>();
+        <span class="cm">// In tests: pass a test double. In prod: pass the singleton.</span>
+    }
+}
+
+<span class="cm">// Production wiring:</span>
+<span class="kw">new</span> <span class="cl">AudioSystem</span>(<span class="cl">GameConfig</span>.<span class="fn">getInstance</span>()); <span class="cm">// singleton used ONCE at wiring point</span>
+
+<span class="cm">// Unit test (no singleton pollution):</span>
+<span class="kw">class</span> <span class="cl">MockConfig</span> <span class="kw">extends</span> <span class="cl">GameConfig</span> { <span class="cm">/* override getVolume() */</span> }
+<span class="kw">new</span> <span class="cl">AudioSystem</span>(<span class="kw">new</span> <span class="cl">MockConfig</span>()); <span class="cm">// isolated, reproducible test ✓</span></code></pre>
+    </div>
+    <div class="callout callout-red"><div class="callout-title">The Key Lesson</div><p>The singleton still exists. The change is <em>where</em> you call <code>getInstance()</code>. Call it once at the composition root (your <code>main()</code> or DI container), then pass it everywhere as a normal object. Never call <code>getInstance()</code> from deep inside business logic.</p></div>
+
+    <hr class="div">
+
+    <!-- S7 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">LEVEL 3</span><span class="tag tag-red">Solution 7 — Break and Reflection-Proof</span></div><h3>Expose the vulnerability, then close it.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">ReflectionAttack.java + GameConfig.java (hardened)</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Breaking it with reflection:</span>
+<span class="kw">import</span> java.lang.reflect.*;
+
+<span class="kw">var</span> ctor = <span class="cl">GameConfig</span>.class.<span class="fn">getDeclaredConstructor</span>();
+ctor.<span class="fn">setAccessible</span>(<span class="kw">true</span>);
+<span class="cl">GameConfig</span> evil = (<span class="cl">GameConfig</span>) ctor.<span class="fn">newInstance</span>();
+<span class="cl">System</span>.out.<span class="fn">println</span>(evil == <span class="cl">GameConfig</span>.<span class="fn">getInstance</span>()); <span class="cm">// false — singleton broken!</span>
+
+<span class="cm">// Hardening the constructor:</span>
+<span class="kw">private</span> <span class="fn">GameConfig</span>() {
+    <span class="cm">// Guard: if the Holder's instance already exists, reject construction</span>
+    <span class="kw">if</span> (<span class="cl">Holder</span>.INSTANCE != <span class="kw">null</span>) {
+        <span class="kw">throw new</span> <span class="cl">IllegalStateException</span>(
+            <span class="st">"GameConfig already instantiated — use getInstance()"</span>);
+    }
+}
+
+<span class="cm">// Now the reflection attack throws IllegalStateException. ✓
+//
+// Note: this guard can't protect the VERY FIRST construction
+// (Holder.INSTANCE is null during first init) — so it only
+// blocks attempts after the singleton is established.
+// For complete reflection protection → use Enum Singleton (Challenge 8).</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S8 -->
+    <div class="challenge boss"><div class="challenge-meta"><span class="diff diff-boss">BOSS</span><span class="tag tag-purple">Solution 8 — Enum Singleton</span></div><h3>The safest Java Singleton. Serialisation-proof and reflection-proof by the language itself.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameConfig.java — Enum Singleton</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public enum</span> <span class="cl">GameConfig</span> {
+
+    INSTANCE; <span class="cm">// the single instance — declared as an enum constant</span>
+
+    <span class="kw">private int</span>    volume     = <span class="nu">70</span>;
+    <span class="kw">private int</span>    brightness = <span class="nu">80</span>;
+    <span class="kw">private</span> <span class="cl">String</span> difficulty = <span class="st">"NORMAL"</span>;
+    <span class="kw">private</span> <span class="cl">String</span> resolution = <span class="st">"1920x1080"</span>;
+
+    <span class="kw">public int</span>    <span class="fn">getVolume</span>()            { <span class="kw">return</span> volume; }
+    <span class="kw">public void</span>   <span class="fn">setVolume</span>(<span class="kw">int</span> v)        { volume = v; }
+    <span class="kw">public int</span>    <span class="fn">getBrightness</span>()         { <span class="kw">return</span> brightness; }
+    <span class="kw">public void</span>   <span class="fn">setBrightness</span>(<span class="kw">int</span> b)     { brightness = b; }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getDifficulty</span>()          { <span class="kw">return</span> difficulty; }
+    <span class="kw">public void</span>   <span class="fn">setDifficulty</span>(<span class="cl">String</span> d)  { difficulty = d; }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getResolution</span>()           { <span class="kw">return</span> resolution; }
+    <span class="kw">public void</span>   <span class="fn">setResolution</span>(<span class="cl">String</span> r)  { resolution = r; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">toString</span>() {
+        <span class="kw">return</span> <span class="cl">String</span>.<span class="fn">format</span>(<span class="st">"[CONFIG] vol:%d bright:%d diff:%s res:%s"</span>,
+            volume, brightness, difficulty, resolution);
+    }
+}
+
+<span class="cm">// Usage — identical to before, just different syntax:
+// GameConfig.INSTANCE.setVolume(50);
+// GameConfig.INSTANCE.getVolume();  → 50
+
+// Proving serialisation-safety:</span>
+<span class="cm">// Serialise:</span>
+<span class="kw">var</span> bos = <span class="kw">new</span> <span class="cl">ByteArrayOutputStream</span>();
+<span class="kw">new</span> <span class="cl">ObjectOutputStream</span>(bos).<span class="fn">writeObject</span>(<span class="cl">GameConfig</span>.INSTANCE);
+
+<span class="cm">// Deserialise:</span>
+<span class="kw">var</span> restored = (<span class="cl">GameConfig</span>) <span class="kw">new</span> <span class="cl">ObjectInputStream</span>(
+    <span class="kw">new</span> <span class="cl">ByteArrayInputStream</span>(bos.<span class="fn">toByteArray</span>())).<span class="fn">readObject</span>();
+
+<span class="cl">System</span>.out.<span class="fn">println</span>(restored == <span class="cl">GameConfig</span>.INSTANCE); <span class="cm">// true ✓</span>
+<span class="cm">// A class-based Singleton would print false here — enum prevents
+// deserialisation from creating a new instance. Language-level guarantee.</span></code></pre>
+    </div>
+
+    <div class="callout callout-purple">
+      <div class="callout-title">Real-World Connections</div>
+      <p>
+        <strong style="color:var(--accent5)">Java Runtime:</strong> <code>Runtime.getRuntime()</code> is a classic Singleton — one JVM runtime, globally accessible.<br><br>
+        <strong style="color:var(--accent5)">Spring Framework:</strong> By default, all Spring beans are singletons within the ApplicationContext. The container manages the single instance and injects it where needed — this is Singleton + Dependency Injection combined.<br><br>
+        <strong style="color:var(--accent5)">Android:</strong> <code>Application.getApplicationContext()</code> follows the Singleton pattern — one app context for the entire app lifecycle.<br><br>
+        <strong style="color:var(--accent5)">Logging:</strong> <code>Logger.getLogger("name")</code> returns a cached logger — effectively a registry of singletons, one per name.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    event.target.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>

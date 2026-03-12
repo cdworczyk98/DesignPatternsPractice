@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Command Pattern — Game Action System</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #10101a;
+    --surface2: #16162a;
+    --border: #1e1e3a;
+    --accent: #c8a45a;
+    --accent2: #7b6ef6;
+    --accent3: #e05252;
+    --accent4: #52b0e0;
+    --accent5: #52e08a;
+    --text: #e8e0d0;
+    --text-dim: #5a5870;
+    --code-bg: #080810;
+    --glow-gold: rgba(200,164,90,0.2);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(123,110,246,0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(200,164,90,0.04) 0%, transparent 50%);
+    color: var(--text);
+    font-family: 'Crimson Pro', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle stone texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(200,164,90,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(200,164,90,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 980px; margin: 0 auto; padding: 0 24px 100px; position: relative; z-index: 1; }
+
+  /* ── Header ── */
+  header { padding: 60px 0 44px; border-bottom: 1px solid var(--border); margin-bottom: 40px; }
+
+  .eyebrow {
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(40px, 7vw, 80px);
+    font-weight: 700;
+    line-height: 1.0;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    text-shadow: 0 0 40px rgba(200,164,90,0.25);
+  }
+  h1 .sub { display: block; font-size: 0.55em; color: var(--text-dim); letter-spacing: 0.12em; margin-top: 6px; }
+
+  .subtitle {
+    margin-top: 20px;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.9;
+    max-width: 560px;
+  }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; margin-bottom: 38px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+
+  .tab-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    padding: 11px 18px;
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    position: relative;
+    transition: color 0.2s;
+    border-right: 1px solid var(--border);
+  }
+  .tab-btn:last-child { border-right: none; }
+  .tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    box-shadow: 0 0 8px var(--accent);
+    transform: scaleX(0);
+    transition: transform 0.25s;
+  }
+  .tab-btn.active { color: var(--accent); }
+  .tab-btn.active::after { transform: scaleX(1); }
+  .tab-btn:hover { color: var(--text); }
+
+  /* ── Panels ── */
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Typography ── */
+  .section-label {
+    font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+
+  h2 {
+    font-family: 'Cinzel', serif;
+    font-size: 30px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 12px;
+    text-shadow: 0 0 20px rgba(200,164,90,0.2);
+  }
+
+  h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  p {
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+
+  strong { color: var(--text); font-weight: 600; }
+  em { color: var(--accent); font-style: italic; }
+  code { font-family: 'Fira Code', monospace; color: var(--accent4); font-size: 11px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: linear-gradient(180deg, var(--accent), transparent);
+    border-radius: 3px 0 0 3px;
+  }
+  .card-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .card-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  @media (max-width: 660px) { .card-grid, .card-grid-3 { grid-template-columns: 1fr; } }
+
+  /* ── Tags ── */
+  .tag {
+    display: inline-block;
+    font-family: 'Fira Code', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 2px;
+    margin-right: 6px;
+    margin-bottom: 8px;
+  }
+  .tag-gold   { background: rgba(200,164,90,0.12); color: var(--accent);  border: 1px solid rgba(200,164,90,0.3); }
+  .tag-purple { background: rgba(123,110,246,0.12); color: var(--accent2); border: 1px solid rgba(123,110,246,0.3); }
+  .tag-red    { background: rgba(224,82,82,0.12);  color: var(--accent3); border: 1px solid rgba(224,82,82,0.3); }
+  .tag-blue   { background: rgba(82,176,224,0.12); color: var(--accent4); border: 1px solid rgba(82,176,224,0.3); }
+  .tag-green  { background: rgba(82,224,138,0.12); color: var(--accent5); border: 1px solid rgba(82,224,138,0.3); }
+
+  /* ── Code blocks ── */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 12px 0;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    line-height: 1.75;
+  }
+  .code-header {
+    background: #0c0c18;
+    border-bottom: 1px solid var(--border);
+    padding: 7px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .code-filename { font-size: 11px; color: var(--accent4); }
+  .code-lang { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-dim); }
+  pre { padding: 16px 18px; overflow-x: auto; scrollbar-width: thin; }
+
+  /* Syntax colours */
+  .kw { color: #c084fc; } .cl { color: #60a5fa; } .fn { color: #86efac; }
+  .st { color: #fcd34d; } .cm { color: #2a2a45; } .nu { color: #fb923c; }
+  .an { color: #f9a8d4; } .in { color: #c084fc; font-style: italic; }
+
+  /* ── Callouts ── */
+  .callout { border-left: 2px solid; padding: 12px 16px; border-radius: 0 3px 3px 0; margin: 12px 0; }
+  .callout-gold   { border-color: var(--accent);  background: rgba(200,164,90,0.05); }
+  .callout-purple { border-color: var(--accent2); background: rgba(123,110,246,0.05); }
+  .callout-red    { border-color: var(--accent3); background: rgba(224,82,82,0.05); }
+  .callout-blue   { border-color: var(--accent4); background: rgba(82,176,224,0.05); }
+  .callout-green  { border-color: var(--accent5); background: rgba(82,224,138,0.05); }
+  .callout-title { font-family: 'Fira Code', monospace; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; margin-bottom: 6px; }
+  .callout-gold   .callout-title { color: var(--accent); }
+  .callout-purple .callout-title { color: var(--accent2); }
+  .callout-red    .callout-title { color: var(--accent3); }
+  .callout-blue   .callout-title { color: var(--accent4); }
+  .callout-green  .callout-title { color: var(--accent5); }
+  .callout p { margin: 0; }
+
+  hr.div { border: none; border-top: 1px solid var(--border); margin: 26px 0; }
+
+  /* ── Diagram ── */
+  .diagram-wrap { background: var(--code-bg); border: 1px solid var(--border); border-radius: 3px; padding: 24px; margin: 14px 0; overflow-x: auto; }
+  .diagram-wrap svg { display: block; margin: 0 auto; }
+
+  /* ── Difficulty tiers ── */
+  .tier {
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin-bottom: 32px;
+    overflow: hidden;
+  }
+  .tier-header {
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tier-icon { font-size: 28px; }
+  .tier-title { font-family: 'Cinzel', serif; font-size: 20px; letter-spacing: 0.1em; }
+  .tier-sub { font-family: 'Fira Code', monospace; font-size: 11px; color: var(--text-dim); }
+  .tier-body { padding: 20px 22px; background: var(--surface); }
+
+  .tier-easy   .tier-header { background: rgba(82,224,138,0.06); }
+  .tier-easy   .tier-title  { color: var(--accent5); }
+  .tier-medium .tier-header { background: rgba(200,164,90,0.06); }
+  .tier-medium .tier-title  { color: var(--accent); }
+  .tier-hard   .tier-header { background: rgba(224,82,82,0.06); }
+  .tier-hard   .tier-title  { color: var(--accent3); }
+
+  /* ── Challenges ── */
+  .challenge { background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; padding: 16px 18px; margin-bottom: 12px; position: relative; overflow: hidden; }
+  .challenge::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 3px; }
+  .challenge.easy::before   { background: var(--accent5); }
+  .challenge.medium::before { background: var(--accent); }
+  .challenge.hard::before   { background: var(--accent3); }
+  .challenge.boss::before   { background: var(--accent2); }
+  .challenge-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .diff { font-family: 'Fira Code', monospace; font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; padding: 2px 8px; border-radius: 2px; }
+  .diff-easy   { background: rgba(82,224,138,0.12); color: var(--accent5); }
+  .diff-medium { background: rgba(200,164,90,0.12); color: var(--accent); }
+  .diff-hard   { background: rgba(224,82,82,0.12);  color: var(--accent3); }
+  .diff-boss   { background: rgba(123,110,246,0.12); color: var(--accent2); }
+
+  /* Steps */
+  ol.steps { list-style: none; counter-reset: s; }
+  ol.steps li { counter-increment: s; display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); font-family: 'Fira Code', monospace; font-size: 12px; color: var(--text-dim); line-height: 1.8; }
+  ol.steps li:last-child { border-bottom: none; }
+  ol.steps li::before { content: counter(s, decimal-leading-zero); font-size: 10px; color: var(--accent); min-width: 24px; padding-top: 2px; flex-shrink: 0; }
+  ol.steps li strong { color: var(--text); display: block; margin-bottom: 4px; }
+
+  /* ── Character stat block ── */
+  .stat-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 16px 18px;
+    font-family: 'Fira Code', monospace;
+    font-size: 12px;
+    margin-bottom: 14px;
+  }
+  .stat-name { font-family: 'Cinzel', serif; font-size: 16px; color: var(--accent); margin-bottom: 10px; }
+  .stat-row { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 5px 0; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-key { color: var(--text-dim); }
+  .stat-val { color: var(--text); }
+
+  /* ── Action log ── */
+  .action-log {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 16px;
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    line-height: 2;
+    margin-bottom: 14px;
+  }
+  .log-entry { display: flex; gap: 12px; }
+  .log-ts { color: var(--text-dim); flex-shrink: 0; }
+  .log-execute { color: var(--accent5); }
+  .log-undo    { color: var(--accent3); }
+  .log-redo    { color: var(--accent4); }
+  .log-queue   { color: var(--accent2); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="eyebrow">// design_patterns · java_workshop · v5</div>
+    <h1>COMMAND PATTERN
+      <span class="sub">GAME ACTION SYSTEM</span>
+    </h1>
+    <p class="subtitle">Encapsulate actions as objects. Undo, redo, queue, replay — all flow naturally from one idea. Three difficulty tiers, 10 challenges, full solutions.</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('baseline')">① Baseline</button>
+    <button class="tab-btn" onclick="switchTab('problem')">② The Problem</button>
+    <button class="tab-btn" onclick="switchTab('deep')">③ Deep Dive</button>
+    <button class="tab-btn" onclick="switchTab('refactor')">④ Refactored</button>
+    <button class="tab-btn" onclick="switchTab('challenges')">⑤ Challenges</button>
+    <button class="tab-btn" onclick="switchTab('solutions')">⑥ Solutions</button>
+  </nav>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- PANEL 1: BASELINE -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="panel-baseline" class="panel active">
+    <div class="section-label">// step_01</div>
+    <h2>The Baseline App</h2>
+    <p>A simple RPG combat system. A Hero can attack, cast spells, and move. An enemy takes damage. All actions are direct method calls — no pattern yet.</p>
+
+    <div class="card-grid">
+      <div class="stat-block">
+        <div class="stat-name">⚔ Hero</div>
+        <div class="stat-row"><span class="stat-key">hp</span><span class="stat-val">100</span></div>
+        <div class="stat-row"><span class="stat-key">mp</span><span class="stat-val">60</span></div>
+        <div class="stat-row"><span class="stat-key">attackPower</span><span class="stat-val">15</span></div>
+        <div class="stat-row"><span class="stat-key">position</span><span class="stat-val">x:0, y:0</span></div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-name">🐉 Enemy</div>
+        <div class="stat-row"><span class="stat-key">hp</span><span class="stat-val">80</span></div>
+        <div class="stat-row"><span class="stat-key">name</span><span class="stat-val">Dragon</span></div>
+        <div class="stat-row"><span class="stat-key">defence</span><span class="stat-val">5</span></div>
+        <div class="stat-row"><span class="stat-key">alive</span><span class="stat-val">true</span></div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Hero.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Hero</span> {
+    <span class="kw">private int</span> hp           = <span class="nu">100</span>;
+    <span class="kw">private int</span> mp           = <span class="nu">60</span>;
+    <span class="kw">private int</span> attackPower  = <span class="nu">15</span>;
+    <span class="kw">private int</span> x            = <span class="nu">0</span>;
+    <span class="kw">private int</span> y            = <span class="nu">0</span>;
+
+    <span class="kw">public void</span> <span class="fn">attack</span>(<span class="cl">Enemy</span> enemy) {
+        <span class="kw">int</span> dmg = attackPower;
+        enemy.<span class="fn">takeDamage</span>(dmg);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Hero attacks for "</span> + dmg);
+    }
+
+    <span class="kw">public void</span> <span class="fn">castSpell</span>(<span class="cl">Enemy</span> enemy) {
+        <span class="kw">if</span> (mp < <span class="nu">20</span>) { <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Not enough MP!"</span>); <span class="kw">return</span>; }
+        mp -= <span class="nu">20</span>;
+        enemy.<span class="fn">takeDamage</span>(<span class="nu">30</span>);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Fireball! 30 damage, MP now: "</span> + mp);
+    }
+
+    <span class="kw">public void</span> <span class="fn">move</span>(<span class="kw">int</span> dx, <span class="kw">int</span> dy) {
+        x += dx; y += dy;
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Hero moves to ("</span> + x + <span class="st">","</span> + y + <span class="st">")"</span>);
+    }
+
+    <span class="cm">// getters omitted for brevity</span>
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Enemy.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Enemy</span> {
+    <span class="kw">private</span> <span class="cl">String</span> name;
+    <span class="kw">private int</span>    hp      = <span class="nu">80</span>;
+    <span class="kw">private int</span>    defence = <span class="nu">5</span>;
+
+    <span class="kw">public</span> <span class="fn">Enemy</span>(<span class="cl">String</span> name) { <span class="kw">this</span>.name = name; }
+
+    <span class="kw">public void</span> <span class="fn">takeDamage</span>(<span class="kw">int</span> dmg) {
+        <span class="kw">int</span> actual = <span class="cl">Math</span>.<span class="fn">max</span>(<span class="nu">0</span>, dmg - defence);
+        hp -= actual;
+        <span class="cl">System</span>.out.<span class="fn">println</span>(name + <span class="st">" takes "</span> + actual + <span class="st">" dmg. HP: "</span> + hp);
+    }
+
+    <span class="kw">public void</span> <span class="fn">heal</span>(<span class="kw">int</span> amount) { hp = <span class="cl">Math</span>.<span class="fn">min</span>(<span class="nu">80</span>, hp + amount); }
+    <span class="kw">public int</span>  <span class="fn">getHp</span>()          { <span class="kw">return</span> hp; }
+    <span class="kw">public boolean</span> <span class="fn">isAlive</span>()     { <span class="kw">return</span> hp > <span class="nu">0</span>; }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Main.java — Direct calls, no pattern</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Main</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+        <span class="cl">Hero</span>  hero  = <span class="kw">new</span> <span class="cl">Hero</span>();
+        <span class="cl">Enemy</span> enemy = <span class="kw">new</span> <span class="cl">Enemy</span>(<span class="st">"Dragon"</span>);
+
+        hero.<span class="fn">attack</span>(enemy);    <span class="cm">// Hero attacks for 15</span>
+        hero.<span class="fn">castSpell</span>(enemy); <span class="cm">// Fireball! 30 damage</span>
+        hero.<span class="fn">move</span>(<span class="nu">3</span>, <span class="nu">0</span>);       <span class="cm">// Hero moves to (3,0)</span>
+
+        <span class="cm">// ⚠ Can we undo the spell? No.
+        // ⚠ Can we queue actions? No.
+        // ⚠ Can we replay the battle? No.</span>
+    }
+}</code></pre>
+    </div>
+
+    <div class="callout callout-gold">
+      <div class="callout-title">Works — For Now</div>
+      <p>Clean and simple. The limitation is that actions are <strong>fire-and-forget</strong>. Once a method is called, that action is gone — no record of it, no way to reverse it, no way to delay or replay it. Click ② to see why this becomes painful fast.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- PANEL 2: PROBLEM -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="panel-problem" class="panel">
+    <div class="section-label">// step_02</div>
+    <h2>New Requirements That Break It</h2>
+    <p>The game needs an undo system (misclick recovery), an action replay system (cutscenes), and an input queue (turn-based scheduling). None of these are possible when actions are plain method calls.</p>
+
+    <div class="callout callout-red">
+      <div class="callout-title">New Requirements</div>
+      <p>① <strong>Undo:</strong> Player misclicked Cast Spell — give them a second. ② <strong>Replay:</strong> Record and replay the winning battle as a cinematic. ③ <strong>Queue:</strong> Schedule actions for a turn-based system — execute them at the right moment. ④ <strong>Macro:</strong> Record a combo (attack → move → spell) and replay with one button.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">❌ Attempting undo with direct calls — impossible</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// You just called this:</span>
+hero.<span class="fn">castSpell</span>(enemy); <span class="cm">// MP -20, enemy HP -30</span>
+
+<span class="cm">// How do you undo it?
+// You'd need to remember:
+//   - which enemy was targeted
+//   - what the MP was before
+//   - what the enemy HP was before
+//   - which spell was cast
+//
+// None of that is captured anywhere.
+// You'd need to add undo logic to every single method in Hero.
+// Then do the same for Move, Attack, UseItem, Block, Flee...
+// The Hero class becomes an unmanageable mess.</span>
+
+<span class="cm">// Attempting to add undo to Hero directly:</span>
+<span class="kw">public class</span> <span class="cl">Hero</span> {
+    <span class="kw">private int</span> lastMp;           <span class="cm">// ← tracking state for undo</span>
+    <span class="kw">private int</span> lastEnemyHp;      <span class="cm">// ← more tracking</span>
+    <span class="kw">private</span> <span class="cl">Enemy</span> lastTarget;     <span class="cm">// ← even more</span>
+    <span class="kw">private</span> <span class="cl">String</span> lastAction;    <span class="cm">// ← and more...</span>
+
+    <span class="kw">public void</span> <span class="fn">castSpell</span>(<span class="cl">Enemy</span> e) {
+        lastMp       = mp;
+        lastEnemyHp  = e.<span class="fn">getHp</span>();
+        lastTarget   = e;
+        lastAction   = <span class="st">"spell"</span>;
+        <span class="cm">// actual spell logic...</span>
+    }
+
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="kw">if</span> (<span class="st">"spell"</span>.<span class="fn">equals</span>(lastAction)) {
+            mp = lastMp;
+            lastTarget.<span class="fn">heal</span>(<span class="nu">30</span>);
+        }
+        <span class="cm">// Repeat for attack, move, useItem, block...
+        // This violates SRP, OCP, and is a maintenance nightmare.</span>
+    }
+}</code></pre>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <span class="tag tag-red">Problem</span>
+        <h3>No Undo Capability</h3>
+        <p>Direct calls leave no trace. Implementing undo means adding bookkeeping fields to every actor class. Every new action doubles the complexity.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Problem</span>
+        <h3>Can't Queue or Schedule</h3>
+        <p>A method call executes immediately. You can't defer it, reorder it, or run it at a specific game tick. Turn-based scheduling becomes impossible.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Problem</span>
+        <h3>Can't Log or Replay</h3>
+        <p>Once the method returns, the action is gone. You can't record what happened, replay a battle, or build a death recap cinematic.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Problem</span>
+        <h3>Hero Knows Too Much</h3>
+        <p>Adding undo, logging, and macro support to <code>Hero</code> violates Single Responsibility. Hero should fight, not manage a history ledger.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-purple">
+      <div class="callout-title">The Core Insight</div>
+      <p>What if instead of calling <code>hero.attack(enemy)</code> directly, you created an <em>object</em> that represents "attack enemy"? That object can be stored in a list, executed later, undone, replayed, logged, or queued. The method call becomes <strong>data</strong>.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- PANEL 3: DEEP DIVE -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="panel-deep" class="panel">
+    <div class="section-label">// step_03</div>
+    <h2>Deep Dive</h2>
+    <p>The Command Pattern has four participants. Understanding each role — and how they relate — is the foundation for everything that follows.</p>
+
+    <!-- Diagram 1: Four participants -->
+    <h3>Diagram 1 — The Four Participants</h3>
+    <p>Every Command implementation has the same four moving parts. The pattern separates <em>who decides to act</em> from <em>who carries out the act</em> from <em>what the act is</em>.</p>
+    <div class="diagram-wrap">
+      <svg width="640" height="240" viewBox="0 0 640 240" xmlns="http://www.w3.org/2000/svg" font-family="Fira Code, monospace" font-size="11">
+        <defs>
+          <marker id="cmd-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#c8a45a"/>
+          </marker>
+          <marker id="cmd-arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#7b6ef6"/>
+          </marker>
+          <marker id="cmd-open" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+            <polygon points="0,0 10,5 0,10" fill="none" stroke="#7b6ef6" stroke-width="1.5"/>
+          </marker>
+        </defs>
+
+        <!-- Invoker -->
+        <rect x="10" y="80" width="130" height="70" rx="3" fill="#10101a" stroke="#c8a45a" stroke-width="1.5"/>
+        <text x="75" y="104" text-anchor="middle" fill="#c8a45a" font-size="10" letter-spacing="0.1em">INVOKER</text>
+        <text x="75" y="122" text-anchor="middle" fill="#e8e0d0" font-size="12" font-weight="600">InputHandler</text>
+        <text x="75" y="140" text-anchor="middle" fill="#5a5870" font-size="10">execute(cmd)</text>
+
+        <!-- Command interface -->
+        <rect x="230" y="60" width="180" height="70" rx="3" fill="#10101a" stroke="#7b6ef6" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="320" y="84" text-anchor="middle" fill="#7b6ef6" font-size="9" letter-spacing="0.1em">«interface»</text>
+        <text x="320" y="101" text-anchor="middle" fill="#e8e0d0" font-size="13" font-weight="600">Command</text>
+        <text x="320" y="119" text-anchor="middle" fill="#5a5870" font-size="10">execute() / undo()</text>
+
+        <!-- Concrete Command -->
+        <rect x="230" y="164" width="180" height="60" rx="3" fill="#10101a" stroke="#1e1e3a" stroke-width="1.5"/>
+        <text x="320" y="186" text-anchor="middle" fill="#c8a45a" font-size="12" font-weight="600">AttackCommand</text>
+        <text x="320" y="202" text-anchor="middle" fill="#5a5870" font-size="10">hero, enemy, damage</text>
+        <text x="320" y="218" text-anchor="middle" fill="#86efac" font-size="10">execute() / undo()</text>
+
+        <!-- Receiver -->
+        <rect x="498" y="80" width="134" height="70" rx="3" fill="#10101a" stroke="#1e1e3a" stroke-width="1.5"/>
+        <text x="565" y="104" text-anchor="middle" fill="#52b0e0" font-size="10" letter-spacing="0.1em">RECEIVER</text>
+        <text x="565" y="122" text-anchor="middle" fill="#e8e0d0" font-size="12" font-weight="600">Hero / Enemy</text>
+        <text x="565" y="140" text-anchor="middle" fill="#5a5870" font-size="10">attack() / heal()</text>
+
+        <!-- Invoker → Command -->
+        <line x1="140" y1="115" x2="228" y2="100" stroke="#c8a45a" stroke-width="1.5" marker-end="url(#cmd-arr)"/>
+        <text x="184" y="102" text-anchor="middle" fill="#5a5870" font-size="9">calls</text>
+
+        <!-- ConcreteCommand implements Command -->
+        <line x1="320" y1="130" x2="320" y2="162" stroke="#7b6ef6" stroke-width="1.2" marker-end="url(#cmd-open)"/>
+
+        <!-- ConcreteCommand → Receiver -->
+        <line x1="410" y1="194" x2="496" y2="130" stroke="#52b0e0" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#cmd-arr)"/>
+        <text x="460" y="160" fill="#5a5870" font-size="9">delegates to</text>
+
+        <!-- Labels -->
+        <text x="75"  y="172" text-anchor="middle" fill="#5a5870" font-size="9" font-style="italic">knows Command</text>
+        <text x="565" y="162" text-anchor="middle" fill="#5a5870" font-size="9" font-style="italic">does real work</text>
+      </svg>
+    </div>
+
+    <!-- Diagram 2: Undo stack -->
+    <h3 style="margin-top:18px">Diagram 2 — Undo / Redo Stack</h3>
+    <p>Commands are pushed onto a history stack as they execute. Undo pops from the top and calls <code>undo()</code>. Redo pushes them to a redo stack. This is the same mechanism used in every text editor, Photoshop, and version control system.</p>
+    <div class="diagram-wrap">
+      <svg width="580" height="220" viewBox="0 0 580 220" xmlns="http://www.w3.org/2000/svg" font-family="Fira Code, monospace" font-size="11">
+        <defs>
+          <marker id="st-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#c8a45a"/>
+          </marker>
+          <marker id="st-arr-r" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#e05252"/>
+          </marker>
+          <marker id="st-arr-b" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#52b0e0"/>
+          </marker>
+        </defs>
+
+        <!-- History stack -->
+        <text x="120" y="16" text-anchor="middle" fill="#c8a45a" font-size="11" letter-spacing="0.1em">HISTORY STACK</text>
+        <rect x="50" y="24" width="140" height="34" rx="2" fill="#10101a" stroke="#c8a45a" stroke-width="1"/>
+        <text x="120" y="46" text-anchor="middle" fill="#c8a45a" font-size="11">MoveCommand(3,0)</text>
+        <text x="195" y="44" fill="#c8a45a" font-size="9">← TOP</text>
+        <rect x="50" y="60" width="140" height="34" rx="2" fill="#10101a" stroke="#1e1e3a"/>
+        <text x="120" y="82" text-anchor="middle" fill="#e8e0d0" font-size="11">SpellCommand</text>
+        <rect x="50" y="96" width="140" height="34" rx="2" fill="#10101a" stroke="#1e1e3a"/>
+        <text x="120" y="118" text-anchor="middle" fill="#e8e0d0" font-size="11">AttackCommand</text>
+
+        <!-- UNDO action -->
+        <text x="290" y="55" text-anchor="middle" fill="#e05252" font-size="12" font-weight="600">UNDO</text>
+        <line x1="190" y1="42" x2="340" y2="42" stroke="#e05252" stroke-width="1.5" marker-end="url(#st-arr-r)" stroke-dasharray="4,3"/>
+        <text x="265" y="36" text-anchor="middle" fill="#5a5870" font-size="9">pop + call undo()</text>
+
+        <!-- Redo stack -->
+        <text x="430" y="16" text-anchor="middle" fill="#52b0e0" font-size="11" letter-spacing="0.1em">REDO STACK</text>
+        <rect x="350" y="24" width="160" height="34" rx="2" fill="#10101a" stroke="#52b0e0" stroke-width="1"/>
+        <text x="430" y="46" text-anchor="middle" fill="#52b0e0" font-size="11">MoveCommand(3,0)</text>
+        <text x="335" y="44" fill="#52b0e0" font-size="9">TOP →</text>
+
+        <!-- REDO action -->
+        <line x1="350" y1="82" x2="195" y2="65" stroke="#52b0e0" stroke-width="1.5" marker-end="url(#st-arr-b)" stroke-dasharray="4,3"/>
+        <text x="272" y="88" text-anchor="middle" fill="#52b0e0" font-size="11" font-weight="600">REDO</text>
+        <text x="272" y="103" text-anchor="middle" fill="#5a5870" font-size="9">pop redo + re-execute</text>
+
+        <!-- Execute new = clear redo -->
+        <rect x="50" y="155" width="500" height="50" rx="3" fill="#10101a" stroke="#1e1e3a"/>
+        <text x="300" y="176" text-anchor="middle" fill="#5a5870" font-size="10">When a NEW command executes:</text>
+        <text x="300" y="194" text-anchor="middle" fill="#e8e0d0" font-size="11">push to history → clear redo stack (standard behaviour)</text>
+      </svg>
+    </div>
+
+    <!-- Diagram 3: Command Queue -->
+    <h3 style="margin-top:18px">Diagram 3 — Command Queue (Turn-Based)</h3>
+    <p>Commands waiting to execute are a queue. The game loop dequeues one per tick. This enables AI planning, networked multiplayer (send commands, not state), and replay files.</p>
+    <div class="diagram-wrap">
+      <svg width="580" height="130" viewBox="0 0 580 130" xmlns="http://www.w3.org/2000/svg" font-family="Fira Code, monospace" font-size="11">
+        <defs>
+          <marker id="q-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#7b6ef6"/>
+          </marker>
+        </defs>
+        <!-- Queue boxes -->
+        <text x="12" y="20" fill="#7b6ef6" font-size="10" letter-spacing="0.1em">ENQUEUE →</text>
+        <rect x="10"  y="28" width="120" height="36" rx="2" fill="#10101a" stroke="#7b6ef6"/>
+        <text x="70"  y="51" text-anchor="middle" fill="#7b6ef6" font-size="10">AttackCommand</text>
+        <rect x="136" y="28" width="120" height="36" rx="2" fill="#10101a" stroke="#1e1e3a"/>
+        <text x="196" y="51" text-anchor="middle" fill="#e8e0d0" font-size="10">MoveCommand</text>
+        <rect x="262" y="28" width="120" height="36" rx="2" fill="#10101a" stroke="#1e1e3a"/>
+        <text x="322" y="51" text-anchor="middle" fill="#e8e0d0" font-size="10">SpellCommand</text>
+        <rect x="388" y="28" width="120" height="36" rx="2" fill="#10101a" stroke="#1e1e3a"/>
+        <text x="448" y="51" text-anchor="middle" fill="#5a5870" font-size="10">[empty]</text>
+
+        <!-- Arrows between -->
+        <line x1="130" y1="46" x2="134" y2="46" stroke="#1e1e3a" stroke-width="1.5"/>
+        <line x1="256" y1="46" x2="260" y2="46" stroke="#1e1e3a" stroke-width="1.5"/>
+        <line x1="382" y1="46" x2="386" y2="46" stroke="#1e1e3a" stroke-width="1.5"/>
+
+        <!-- Dequeue arrow -->
+        <line x1="130" y1="80" x2="560" y2="80" stroke="#c8a45a" stroke-width="1.2" stroke-dasharray="4,3"/>
+        <text x="340" y="75" text-anchor="middle" fill="#5a5870" font-size="9">← DEQUEUE (game loop takes next command per tick)</text>
+        <line x1="70" y1="64" x2="70" y2="120" stroke="#c8a45a" stroke-width="1.5" marker-end="url(#q-arr)"/>
+        <text x="70" y="115" text-anchor="middle" fill="#c8a45a" font-size="9">execute()</text>
+
+        <text x="530" y="48" fill="#5a5870" font-size="9">→ DEQUEUE</text>
+      </svg>
+    </div>
+
+    <hr class="div">
+
+    <div class="section-label">// roles_explained</div>
+    <ol class="steps">
+      <li>
+        <div>
+          <strong>Command (interface)</strong>
+          Declares <code>execute()</code> and optionally <code>undo()</code>. This is the abstraction that lets the Invoker treat all actions uniformly — it doesn't care if it's an attack or a spell.
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Concrete Command (AttackCommand, SpellCommand, MoveCommand)</strong>
+          Implements the interface. Stores all parameters needed to perform AND reverse the action. It delegates the actual work to the Receiver — it doesn't contain game logic itself.
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Invoker (InputHandler / GameEngine)</strong>
+          Calls <code>execute()</code> on commands and manages the history stack. It never calls <code>hero.attack()</code> directly. It just calls <code>command.execute()</code> — it doesn't know or care what the command does.
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Receiver (Hero, Enemy)</strong>
+          The object that actually carries out the work. <code>AttackCommand.execute()</code> calls <code>hero.attack()</code>. The Receiver has no knowledge of commands at all — it just has its normal methods.
+        </div>
+      </li>
+      <li>
+        <div>
+          <strong>Why store state in the command?</strong>
+          <code>AttackCommand</code> stores the target and the damage dealt. When <code>undo()</code> is called, it has everything it needs to reverse the action — no global undo state, no fields polluting <code>Hero</code>.
+        </div>
+      </li>
+    </ol>
+
+    <div class="callout callout-purple">
+      <div class="callout-title">The Key Transformation</div>
+      <p><code>hero.attack(enemy)</code> — a <em>verb</em>, gone when it returns.<br>
+      <code>new AttackCommand(hero, enemy)</code> — a <em>noun</em>, an object you can store, pass, delay, replay, or undo. This transformation from verb to noun is the entire pattern.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- PANEL 4: REFACTORED -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="panel-refactor" class="panel">
+    <div class="section-label">// step_04</div>
+    <h2>Refactored — Full Command System</h2>
+    <p>The same Hero and Enemy classes from the baseline — untouched. All new code lives in commands and the invoker.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Command.java — The Interface</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">/**
+ * The Command interface. Every game action implements this.
+ * undo() is optional — commands that can't be undone can throw
+ * UnsupportedOperationException or simply no-op.
+ */</span>
+<span class="kw">public interface</span> <span class="cl">Command</span> {
+    <span class="kw">void</span> <span class="fn">execute</span>();
+    <span class="kw">void</span> <span class="fn">undo</span>();
+    <span class="kw">default</span> <span class="cl">String</span> <span class="fn">describe</span>() { <span class="kw">return</span> <span class="fn">getClass</span>().<span class="fn">getSimpleName</span>(); }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">AttackCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">AttackCommand</span> <span class="kw">implements</span> <span class="cl">Command</span> {
+
+    <span class="kw">private final</span> <span class="cl">Hero</span>  hero;
+    <span class="kw">private final</span> <span class="cl">Enemy</span> enemy;
+    <span class="kw">private int</span> damageDealt; <span class="cm">// stored AFTER execute — needed by undo()</span>
+
+    <span class="kw">public</span> <span class="fn">AttackCommand</span>(<span class="cl">Hero</span> hero, <span class="cl">Enemy</span> enemy) {
+        <span class="kw">this</span>.hero  = hero;
+        <span class="kw">this</span>.enemy = enemy;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        <span class="cm">// Delegate the REAL work to the Receiver (Hero)</span>
+        damageDealt = hero.<span class="fn">getAttackPower</span>();
+        enemy.<span class="fn">takeDamage</span>(damageDealt);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[EXEC] Attack → "</span> + damageDealt + <span class="st">" dmg"</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="cm">// Reverse exactly what execute() did</span>
+        enemy.<span class="fn">heal</span>(damageDealt);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[UNDO] Attack reversed — healed "</span> + damageDealt);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() { <span class="kw">return</span> <span class="st">"Attack("</span> + damageDealt + <span class="st">" dmg)"</span>; }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">SpellCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">SpellCommand</span> <span class="kw">implements</span> <span class="cl">Command</span> {
+
+    <span class="kw">private static final int</span> SPELL_DAMAGE = <span class="nu">30</span>;
+    <span class="kw">private static final int</span> SPELL_COST   = <span class="nu">20</span>;
+
+    <span class="kw">private final</span> <span class="cl">Hero</span>  hero;
+    <span class="kw">private final</span> <span class="cl">Enemy</span> enemy;
+    <span class="kw">private boolean</span> executed = <span class="kw">false</span>; <span class="cm">// guard against undo before execute</span>
+
+    <span class="kw">public</span> <span class="fn">SpellCommand</span>(<span class="cl">Hero</span> hero, <span class="cl">Enemy</span> enemy) {
+        <span class="kw">this</span>.hero = hero; <span class="kw">this</span>.enemy = enemy;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        <span class="kw">if</span> (hero.<span class="fn">getMp</span>() < SPELL_COST) {
+            <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[EXEC] Not enough MP!"</span>);
+            <span class="kw">return</span>;
+        }
+        hero.<span class="fn">spendMp</span>(SPELL_COST);
+        enemy.<span class="fn">takeDamage</span>(SPELL_DAMAGE);
+        executed = <span class="kw">true</span>;
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[EXEC] Fireball → 30 dmg, MP -20"</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="kw">if</span> (!executed) <span class="kw">return</span>; <span class="cm">// never ran — nothing to undo</span>
+        hero.<span class="fn">restoreMp</span>(SPELL_COST);
+        enemy.<span class="fn">heal</span>(SPELL_DAMAGE);
+        executed = <span class="kw">false</span>;
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[UNDO] Fireball reversed"</span>);
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">MoveCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">MoveCommand</span> <span class="kw">implements</span> <span class="cl">Command</span> {
+
+    <span class="kw">private final</span> <span class="cl">Hero</span> hero;
+    <span class="kw">private final int</span>  dx, dy;
+
+    <span class="kw">public</span> <span class="fn">MoveCommand</span>(<span class="cl">Hero</span> hero, <span class="kw">int</span> dx, <span class="kw">int</span> dy) {
+        <span class="kw">this</span>.hero = hero; <span class="kw">this</span>.dx = dx; <span class="kw">this</span>.dy = dy;
+    }
+
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">execute</span>() { hero.<span class="fn">move</span>(dx, dy);   }
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">undo</span>()    { hero.<span class="fn">move</span>(-dx, -dy); } <span class="cm">// reverse the delta</span>
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() { <span class="kw">return</span> <span class="st">"Move("</span>+dx+<span class="st">","</span>+dy+<span class="st">")"</span>; }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameEngine.java — The Invoker</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.*;
+
+<span class="kw">public class</span> <span class="cl">GameEngine</span> {
+
+    <span class="kw">private final</span> <span class="cl">Deque</span>&lt;<span class="cl">Command</span>&gt; history  = <span class="kw">new</span> <span class="cl">ArrayDeque</span>&lt;&gt;();
+    <span class="kw">private final</span> <span class="cl">Deque</span>&lt;<span class="cl">Command</span>&gt; redoStack = <span class="kw">new</span> <span class="cl">ArrayDeque</span>&lt;&gt;();
+
+    <span class="cm">// Execute a command and record it</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>(<span class="cl">Command</span> cmd) {
+        cmd.<span class="fn">execute</span>();
+        history.<span class="fn">push</span>(cmd);
+        redoStack.<span class="fn">clear</span>(); <span class="cm">// new action clears redo branch</span>
+    }
+
+    <span class="cm">// Undo the most recent command</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="kw">if</span> (history.<span class="fn">isEmpty</span>()) { <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Nothing to undo"</span>); <span class="kw">return</span>; }
+        <span class="cl">Command</span> cmd = history.<span class="fn">pop</span>();
+        cmd.<span class="fn">undo</span>();
+        redoStack.<span class="fn">push</span>(cmd);
+    }
+
+    <span class="cm">// Redo the most recently undone command</span>
+    <span class="kw">public void</span> <span class="fn">redo</span>() {
+        <span class="kw">if</span> (redoStack.<span class="fn">isEmpty</span>()) { <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Nothing to redo"</span>); <span class="kw">return</span>; }
+        <span class="cl">Command</span> cmd = redoStack.<span class="fn">pop</span>();
+        cmd.<span class="fn">execute</span>();
+        history.<span class="fn">push</span>(cmd);
+    }
+
+    <span class="cm">// Print the full battle log</span>
+    <span class="kw">public void</span> <span class="fn">printHistory</span>() {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"=== Battle Log ==="</span>);
+        <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(history).<span class="fn">stream</span>()
+            .<span class="fn">map</span>(<span class="cl">Command</span>::<span class="fn">describe</span>)
+            .<span class="fn">forEach</span>(<span class="cl">System</span>.out::<span class="fn">println</span>);
+    }
+}
+
+<span class="cm">// Usage:
+// GameEngine engine = new GameEngine();
+// engine.execute(new AttackCommand(hero, enemy));  // [EXEC] Attack → 10 dmg
+// engine.execute(new SpellCommand(hero, enemy));   // [EXEC] Fireball → 30 dmg
+// engine.undo();                                   // [UNDO] Fireball reversed
+// engine.redo();                                   // [EXEC] Fireball → 30 dmg
+// engine.printHistory();                           // === Battle Log ===</span></code></pre>
+    </div>
+
+    <div class="action-log">
+      <div class="log-entry"><span class="log-ts">[T+0]</span><span class="log-execute">[EXEC] Attack → 10 dmg. Dragon HP: 65</span></div>
+      <div class="log-entry"><span class="log-ts">[T+1]</span><span class="log-execute">[EXEC] Move(3,0). Hero at (3,0)</span></div>
+      <div class="log-entry"><span class="log-ts">[T+2]</span><span class="log-execute">[EXEC] Fireball → 30 dmg. Dragon HP: 35</span></div>
+      <div class="log-entry"><span class="log-ts">[T+3]</span><span class="log-undo">[UNDO] Fireball reversed. Dragon HP: 65. MP restored.</span></div>
+      <div class="log-entry"><span class="log-ts">[T+4]</span><span class="log-redo">[REDO] Fireball → 30 dmg. Dragon HP: 35</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- PANEL 5: CHALLENGES -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="panel-challenges" class="panel">
+    <div class="section-label">// step_05</div>
+    <h2>Practice Challenges</h2>
+    <p>Ten challenges across three difficulty tiers. Build on the refactored code from panel ④. Attempt each before reading the solution.</p>
+
+    <!-- ─── EASY TIER ─── -->
+    <div class="tier tier-easy">
+      <div class="tier-header">
+        <span class="tier-icon">🗡</span>
+        <div>
+          <div class="tier-title">APPRENTICE TIER</div>
+          <div class="tier-sub">Challenges 1–3 · Core pattern mechanics · One new concept each</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Apprentice</span><span class="tag tag-green">Challenge 1</span></div>
+          <h3>Add a HealCommand</h3>
+          <p>Create a <code>HealCommand</code> that restores 25 HP to the Hero (capped at max HP of 100). Implement both <code>execute()</code> and <code>undo()</code>. Store the actual amount healed (not always 25 — the hero might already be at 90 HP) so <code>undo()</code> reverses precisely what was done. Test with the GameEngine.</p>
+          <div class="callout callout-green" style="margin-top:10px"><div class="callout-title">Goal</div><p>Write your first complete Command. Focus on capturing exact state in the command object — the difference between "heal 25" and "healed exactly 10 because HP was at 90" is what makes undo reliable.</p></div>
+        </div>
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Apprentice</span><span class="tag tag-green">Challenge 2</span></div>
+          <h3>Limit Undo Depth to 5</h3>
+          <p>Modify <code>GameEngine</code> so the history stack never exceeds 5 commands. When the limit is reached, the oldest command is dropped (not the newest — oldest commands become non-undoable). This mirrors what most real applications do (e.g., Ctrl+Z only goes back 20 steps).</p>
+          <div class="callout callout-green" style="margin-top:10px"><div class="callout-title">Think About</div><p>A <code>Deque</code> can be used as both a stack and a queue. How do you limit its size while maintaining push/pop behaviour from the top? <code>ArrayDeque</code> doesn't have a max-size — you'll need to enforce it manually.</p></div>
+        </div>
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Apprentice</span><span class="tag tag-green">Challenge 3</span></div>
+          <h3>Command Logger Decorator</h3>
+          <p>Create a <code>LoggedCommand</code> wrapper class that implements <code>Command</code> and wraps any other command. Before calling <code>execute()</code> and <code>undo()</code> on the inner command, it prints a timestamped log line. The rest of the codebase passes <code>LoggedCommand</code> to the engine — it doesn't need to know logging exists.</p>
+          <div class="callout callout-green" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This is the Decorator pattern applied to commands. You already know Decorator from workshop v1 — here it appears inside a completely different pattern. Cross-pattern composition is a key skill.</p></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─── MEDIUM TIER ─── -->
+    <div class="tier tier-medium">
+      <div class="tier-header">
+        <span class="tier-icon">⚔</span>
+        <div>
+          <div class="tier-title">VETERAN TIER</div>
+          <div class="tier-sub">Challenges 4–7 · Composition and real game mechanics</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Challenge 4</span></div>
+          <h3>MacroCommand — Combo Attacks</h3>
+          <p>Create a <code>MacroCommand</code> that wraps a <code>List&lt;Command&gt;</code>. <code>execute()</code> runs them all in order. <code>undo()</code> reverses them in reverse order. Build a "Storm Combo" macro: Attack → Move(1,0) → Spell → Attack. Register it as a single command with the engine. Undo should reverse all four steps.</p>
+          <div class="callout callout-gold" style="margin-top:10px"><div class="callout-title">Think About</div><p>Should <code>MacroCommand</code> be pushed to the history stack as one entry, or should each sub-command be pushed individually? What does the user expect when they press Ctrl+Z after a combo?</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Challenge 5</span></div>
+          <h3>Turn-Based Action Queue</h3>
+          <p>Add a <code>Queue&lt;Command&gt;</code> to <code>GameEngine</code>. Add methods <code>scheduleCommand(Command)</code> and <code>processTurn()</code>. Each call to <code>processTurn()</code> dequeues one command and executes it. Build a "planned battle": queue 5 actions upfront, then call <code>processTurn()</code> in a loop. Only commands that were processed should be in the undo history.</p>
+          <div class="callout callout-gold" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This is how turn-based games, AI planners, and networked games work. The AI queues its actions one tick, they execute the next. Commands sent over a network can be queued and applied when received.</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Challenge 6</span></div>
+          <h3>Conditional Command — StunAttack</h3>
+          <p>Create a <code>StunAttackCommand</code>: deals 10 damage AND sets a <code>stunned</code> flag on the enemy (add this field to <code>Enemy</code>). If the enemy is already dead when <code>undo()</code> is called, only restore the stun flag — do not resurrect. This models a command whose undo must reason about current state, not just blindly reverse.</p>
+          <div class="callout callout-gold" style="margin-top:10px"><div class="callout-title">Think About</div><p>Real undo systems often can't perfectly reverse actions. A deleted file recovered from Recycle Bin may not have the same timestamps. Design your undo with realistic constraints in mind.</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Challenge 7</span></div>
+          <h3>Replay Mode</h3>
+          <p>After a battle, implement a <code>replay()</code> method on <code>GameEngine</code> that re-executes all commands in the history from oldest to newest on a fresh copy of the game state (new Hero and Enemy). Print each step as it replays. This simulates a battle replay / death recap cinematic.</p>
+          <div class="callout callout-gold" style="margin-top:10px"><div class="callout-title">Think About</div><p>History commands hold references to the original Hero and Enemy. You can't just re-execute them on new objects — the receivers are wrong. How do you decouple commands from specific receiver instances to make replay possible?</p></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─── HARD TIER ─── -->
+    <div class="tier tier-hard">
+      <div class="tier-header">
+        <span class="tier-icon">🐉</span>
+        <div>
+          <div class="tier-title">CHAMPION TIER</div>
+          <div class="tier-sub">Challenges 8–10 · Architecture, serialisation, cross-pattern</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge hard">
+          <div class="challenge-meta"><span class="diff diff-hard">Champion</span><span class="tag tag-red">Challenge 8</span></div>
+          <h3>Serialisable Command Log</h3>
+          <p>Make all commands implement <code>Serializable</code>. After a battle, write the full command history to a <code>battle.log</code> file using Java serialisation. On the next run, read the log back and replay the battle automatically. This is how save-state replay systems work in competitive games.</p>
+          <div class="callout callout-red" style="margin-top:10px"><div class="callout-title">Think About</div><p>When you deserialise commands, their <code>Hero</code> and <code>Enemy</code> references may point to stale objects — not the new game's objects. You will need to handle receiver re-binding on deserialisation. How?</p></div>
+        </div>
+
+        <div class="challenge hard">
+          <div class="challenge-meta"><span class="diff diff-hard">Champion</span><span class="tag tag-red">Challenge 9</span></div>
+          <h3>Command + Observer — Live Battle Feed</h3>
+          <p>Add an <code>CommandExecutionListener</code> interface with <code>onExecute(Command)</code> and <code>onUndo(Command)</code>. Register listeners on the engine. One listener updates a <code>BattleHUD</code> (prints HP bars). Another listener feeds a <code>AchievementTracker</code> that unlocks "Undo Master" if the player undoes 3 times in one battle. The commands themselves know nothing about this.</p>
+          <div class="callout callout-red" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This combines Command + Observer — the same composition as Challenge 3 from the Singleton workshop. Real game engines use exactly this: the input system fires commands, the event bus propagates them, and UI/analytics systems react.</p></div>
+        </div>
+
+        <div class="challenge boss">
+          <div class="challenge-meta"><span class="diff diff-boss">BOSS</span><span class="tag tag-purple">Challenge 10</span></div>
+          <h3>Apply to a New Domain — Text Editor</h3>
+          <p>Port the Command Pattern to a minimal text editor. <code>Receiver</code> is a <code>TextBuffer</code> (a <code>StringBuilder</code>). Commands: <code>InsertTextCommand(pos, text)</code>, <code>DeleteTextCommand(pos, length)</code>, <code>BoldCommand(start, end)</code>. All three are undoable. Hook up an <code>EditorEngine</code> (the Invoker) with undo/redo. This is literally how VSCode, IntelliJ, and Word implement Ctrl+Z.</p>
+          <div class="callout callout-purple" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>Recognising when a pattern applies to a new domain is the mark of real pattern fluency. The structure is identical — only the domain nouns change. If you can port Command from games to text editors in under 30 minutes, you own the pattern.</p></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- PANEL 6: SOLUTIONS -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="panel-solutions" class="panel">
+    <div class="section-label">// step_06</div>
+    <h2>Challenge Solutions</h2>
+    <p>Full solutions with design commentary. Always attempt first.</p>
+
+    <!-- S1 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Apprentice</span><span class="tag tag-green">Solution 1 — HealCommand</span></div><h3>Capture exact heal amount for precise undo.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">HealCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">HealCommand</span> <span class="kw">implements</span> <span class="cl">Command</span> {
+
+    <span class="kw">private static final int</span> HEAL_AMOUNT = <span class="nu">25</span>;
+    <span class="kw">private static final int</span> MAX_HP      = <span class="nu">100</span>;
+
+    <span class="kw">private final</span> <span class="cl">Hero</span> hero;
+    <span class="kw">private int</span> actualHealed; <span class="cm">// captured during execute()</span>
+
+    <span class="kw">public</span> <span class="fn">HealCommand</span>(<span class="cl">Hero</span> hero) { <span class="kw">this</span>.hero = hero; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        <span class="kw">int</span> before = hero.<span class="fn">getHp</span>();
+        <span class="kw">int</span> after  = <span class="cl">Math</span>.<span class="fn">min</span>(MAX_HP, before + HEAL_AMOUNT);
+        actualHealed = after - before; <span class="cm">// might be less than 25!</span>
+        hero.<span class="fn">setHp</span>(after);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[EXEC] Heal → +"</span> + actualHealed + <span class="st">" HP"</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        hero.<span class="fn">setHp</span>(hero.<span class="fn">getHp</span>() - actualHealed); <span class="cm">// precise reversal</span>
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[UNDO] Heal reversed → -"</span> + actualHealed + <span class="st">" HP"</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() { <span class="kw">return</span> <span class="st">"Heal(+"</span> + actualHealed + <span class="st">")"</span>; }
+}
+
+<span class="cm">// Key design decision: we store 'actualHealed', not HEAL_AMOUNT.
+// If hero was at 90 HP, actualHealed = 10, not 25.
+// undo() subtracts 10, restoring hero to 90. ✓
+// Storing 25 would undo too much, leaving hero at 75 HP. ✗</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S2 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Apprentice</span><span class="tag tag-green">Solution 2 — Undo Depth Limit</span></div><h3>Enforce max stack size by dropping the oldest entry.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameEngine.java — bounded history</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">private static final int</span> MAX_HISTORY = <span class="nu">5</span>;
+
+<span class="kw">public void</span> <span class="fn">execute</span>(<span class="cl">Command</span> cmd) {
+    cmd.<span class="fn">execute</span>();
+    history.<span class="fn">push</span>(cmd); <span class="cm">// push to front (top of stack)</span>
+    <span class="kw">if</span> (history.<span class="fn">size</span>() > MAX_HISTORY) {
+        history.<span class="fn">removeLast</span>(); <span class="cm">// drop OLDEST (bottom) — it's non-undoable now</span>
+    }
+    redoStack.<span class="fn">clear</span>();
+}
+
+<span class="cm">// Deque mental model for this use case:
+//   push(x)       → adds to FRONT (top of stack)
+//   pop()         → removes from FRONT (undo most recent)
+//   removeLast()  → removes from BACK (drop oldest)
+//
+// After 6 commands with limit 5:
+//   [Cmd6, Cmd5, Cmd4, Cmd3, Cmd2]  ← Cmd1 dropped
+// Undo 5 times works. Cmd1 is gone forever.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S3 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Apprentice</span><span class="tag tag-green">Solution 3 — LoggedCommand Decorator</span></div><h3>Wrap any command transparently — Decorator applied to Command.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">LoggedCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">LoggedCommand</span> <span class="kw">implements</span> <span class="cl">Command</span> {
+
+    <span class="kw">private final</span> <span class="cl">Command</span> inner;
+
+    <span class="kw">public</span> <span class="fn">LoggedCommand</span>(<span class="cl">Command</span> inner) { <span class="kw">this</span>.inner = inner; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"[%d] EXECUTE: %s%n"</span>,
+            <span class="cl">System</span>.currentTimeMillis(), inner.<span class="fn">describe</span>());
+        inner.<span class="fn">execute</span>();
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"[%d] UNDO:    %s%n"</span>,
+            <span class="cl">System</span>.currentTimeMillis(), inner.<span class="fn">describe</span>());
+        inner.<span class="fn">undo</span>();
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() { <span class="kw">return</span> <span class="st">"Logged("</span> + inner.<span class="fn">describe</span>() + <span class="st">")"</span>; }
+}
+
+<span class="cm">// Usage — wraps transparently:
+// engine.execute(new LoggedCommand(new AttackCommand(hero, enemy)));
+//
+// Notice: this is Decorator pattern applied to Command.
+// The engine sees only 'Command' — it has no idea logging exists.
+// Add LoggedCommand in one place; remove it in one place. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S4 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Solution 4 — MacroCommand</span></div><h3>Composite of commands — executes and undoes as one unit.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">MacroCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.*;
+
+<span class="kw">public class</span> <span class="cl">MacroCommand</span> <span class="kw">implements</span> <span class="cl">Command</span> {
+
+    <span class="kw">private final</span> <span class="cl">String</span>        name;
+    <span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">Command</span>&gt; commands;
+
+    <span class="kw">public</span> <span class="fn">MacroCommand</span>(<span class="cl">String</span> name, <span class="cl">Command</span>... cmds) {
+        <span class="kw">this</span>.name     = name;
+        <span class="kw">this</span>.commands = <span class="cl">List</span>.<span class="fn">of</span>(cmds);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[MACRO] Executing: "</span> + name);
+        commands.<span class="fn">forEach</span>(<span class="cl">Command</span>::<span class="fn">execute</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="cm">// Reverse order — undo last step first</span>
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[MACRO] Undoing: "</span> + name);
+        <span class="cl">List</span>&lt;<span class="cl">Command</span>&gt; reversed = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(commands);
+        <span class="cl">Collections</span>.<span class="fn">reverse</span>(reversed);
+        reversed.<span class="fn">forEach</span>(<span class="cl">Command</span>::<span class="fn">undo</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() { <span class="kw">return</span> <span class="st">"Macro("</span> + name + <span class="st">")"</span>; }
+}
+
+<span class="cm">// Storm Combo:
+// engine.execute(new MacroCommand("Storm Combo",
+//     new AttackCommand(hero, enemy),
+//     new MoveCommand(hero, 1, 0),
+//     new SpellCommand(hero, enemy),
+//     new AttackCommand(hero, enemy)
+// ));
+//
+// engine.undo(); // undoes all 4 steps in reverse order ✓
+//
+// Design note: pushed as ONE entry on history stack.
+// One Ctrl+Z undoes the entire combo — matching user expectation.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S5 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Solution 5 — Turn-Based Action Queue</span></div><h3>Schedule actions; process one per turn.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameEngine.java — with action queue</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">private final</span> <span class="cl">Queue</span>&lt;<span class="cl">Command</span>&gt; actionQueue = <span class="kw">new</span> <span class="cl">LinkedList</span>&lt;&gt;();
+
+<span class="kw">public void</span> <span class="fn">scheduleCommand</span>(<span class="cl">Command</span> cmd) {
+    actionQueue.<span class="fn">offer</span>(cmd); <span class="cm">// enqueue — doesn't execute yet</span>
+    <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[QUEUE] Scheduled: "</span> + cmd.<span class="fn">describe</span>());
+}
+
+<span class="kw">public void</span> <span class="fn">processTurn</span>() {
+    <span class="cl">Command</span> cmd = actionQueue.<span class="fn">poll</span>(); <span class="cm">// dequeue next</span>
+    <span class="kw">if</span> (cmd == <span class="kw">null</span>) {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[TURN] No actions queued."</span>);
+        <span class="kw">return</span>;
+    }
+    <span class="fn">execute</span>(cmd); <span class="cm">// execute + record in history</span>
+    <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[TURN] Processed. Queue remaining: "</span> + actionQueue.<span class="fn">size</span>());
+}
+
+<span class="cm">// Usage — plan 5 actions, execute one per turn:
+// engine.scheduleCommand(new AttackCommand(hero, enemy));
+// engine.scheduleCommand(new MoveCommand(hero, 2, 0));
+// engine.scheduleCommand(new SpellCommand(hero, enemy));
+//
+// for (int i = 0; i < 5; i++) engine.processTurn();
+//
+// Key: scheduleCommand() never executes.
+// Only processTurn() executes — and only one per tick.
+// AI systems schedule their entire turn plan upfront. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S6 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Solution 6 — Conditional Undo (StunAttack)</span></div><h3>Undo must reason about current state, not blindly reverse.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">StunAttackCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">StunAttackCommand</span> <span class="kw">implements</span> <span class="cl">Command</span> {
+
+    <span class="kw">private final</span> <span class="cl">Hero</span>  hero;
+    <span class="kw">private final</span> <span class="cl">Enemy</span> enemy;
+    <span class="kw">private boolean</span> stunApplied = <span class="kw">false</span>;
+    <span class="kw">private int</span> damageDealt;
+
+    <span class="kw">public</span> <span class="fn">StunAttackCommand</span>(<span class="cl">Hero</span> hero, <span class="cl">Enemy</span> enemy) {
+        <span class="kw">this</span>.hero = hero; <span class="kw">this</span>.enemy = enemy;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        damageDealt = <span class="nu">10</span>;
+        enemy.<span class="fn">takeDamage</span>(damageDealt);
+        <span class="kw">if</span> (enemy.<span class="fn">isAlive</span>()) {
+            enemy.<span class="fn">setStunned</span>(<span class="kw">true</span>);
+            stunApplied = <span class="kw">true</span>;
+        }
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[EXEC] StunAttack: 10 dmg, stunned="</span> + stunApplied);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="cm">// Only heal if enemy is still alive — don't resurrect</span>
+        <span class="kw">if</span> (enemy.<span class="fn">isAlive</span>()) {
+            enemy.<span class="fn">heal</span>(damageDealt);
+        }
+        <span class="cm">// Always un-stun if we applied it</span>
+        <span class="kw">if</span> (stunApplied) {
+            enemy.<span class="fn">setStunned</span>(<span class="kw">false</span>);
+            stunApplied = <span class="kw">false</span>;
+        }
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[UNDO] StunAttack reversed (alive="</span> + enemy.<span class="fn">isAlive</span>() + <span class="st">")"</span>);
+    }
+}
+
+<span class="cm">// Lesson: undo doesn't always mean "perfect reversal".
+// Real undo systems have constraints:
+//   - Can't un-send an email
+//   - Can't un-delete a file if disk space was reclaimed
+//   - Can't resurrect a dead enemy (game balance reasons)
+// Document what your undo does and doesn't reverse.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S7 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Veteran</span><span class="tag tag-gold">Solution 7 — Replay Mode</span></div><h3>Decouple commands from specific receiver instances.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Approach — Command Factory / Supplier pattern</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Problem: commands hold references to the original hero/enemy.
+// For replay on new objects, we need a way to re-create them
+// targeting the new receivers.
+//
+// Solution A — Command Factories (Suppliers):
+// Instead of storing commands, store Supplier&lt;Command&gt; lambdas.
+// The lambda captures the action, not the receivers.
+// For replay, invoke the supplier with new receivers.</span>
+
+<span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">BiFunction</span>&lt;<span class="cl">Hero</span>, <span class="cl">Enemy</span>, <span class="cl">Command</span>&gt;&gt; replayScript = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+
+<span class="kw">public void</span> <span class="fn">execute</span>(<span class="cl">Command</span> cmd, <span class="cl">BiFunction</span>&lt;<span class="cl">Hero</span>, <span class="cl">Enemy</span>, <span class="cl">Command</span>&gt; factory) {
+    cmd.<span class="fn">execute</span>();
+    history.<span class="fn">push</span>(cmd);
+    replayScript.<span class="fn">add</span>(factory); <span class="cm">// store HOW to recreate, not the instance</span>
+    redoStack.<span class="fn">clear</span>();
+}
+
+<span class="kw">public void</span> <span class="fn">replay</span>() {
+    <span class="cl">Hero</span>  freshHero  = <span class="kw">new</span> <span class="cl">Hero</span>();
+    <span class="cl">Enemy</span> freshEnemy = <span class="kw">new</span> <span class="cl">Enemy</span>(<span class="st">"Dragon"</span>);
+    <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"=== REPLAY ==="</span>);
+    <span class="cl">List</span>&lt;<span class="cl">BiFunction</span>&lt;<span class="cl">Hero</span>,<span class="cl">Enemy</span>,<span class="cl">Command</span>&gt;&gt; steps = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(replayScript);
+    <span class="cl">Collections</span>.<span class="fn">reverse</span>(steps); <span class="cm">// history is LIFO, replay needs FIFO</span>
+    steps.<span class="fn">forEach</span>(f -> f.<span class="fn">apply</span>(freshHero, freshEnemy).<span class="fn">execute</span>());
+}
+
+<span class="cm">// Usage:
+// engine.execute(
+//   new AttackCommand(hero, enemy),
+//   (h, e) -> new AttackCommand(h, e)  // factory for replay
+// );
+//
+// engine.replay(); // fresh hero/enemy, same sequence ✓
+//
+// Solution B (simpler): give each Command a setReceivers() method
+// so replay can rebind after deserialisation.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S8 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">Champion</span><span class="tag tag-red">Solution 8 — Serialisable Command Log</span></div><h3>Write and read command history to disk.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">GameEngine.java — save/load log</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// All Command implementations must implement Serializable:</span>
+<span class="kw">public class</span> <span class="cl">AttackCommand</span> <span class="kw">implements</span> <span class="cl">Command</span>, <span class="in">Serializable</span> { ... }
+
+<span class="cm">// Serialising the history:</span>
+<span class="kw">public void</span> <span class="fn">saveLog</span>(<span class="cl">String</span> path) <span class="kw">throws</span> <span class="cl">IOException</span> {
+    <span class="kw">try</span> (<span class="kw">var</span> oos = <span class="kw">new</span> <span class="cl">ObjectOutputStream</span>(<span class="kw">new</span> <span class="cl">FileOutputStream</span>(path))) {
+        oos.<span class="fn">writeObject</span>(<span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(history));
+    }
+}
+
+<span class="cm">// Reading back and replaying:</span>
+<span class="an">@SuppressWarnings</span>(<span class="st">"unchecked"</span>)
+<span class="kw">public void</span> <span class="fn">replayFromLog</span>(<span class="cl">String</span> path, <span class="cl">Hero</span> hero, <span class="cl">Enemy</span> enemy) <span class="kw">throws</span> <span class="cl">Exception</span> {
+    <span class="kw">try</span> (<span class="kw">var</span> ois = <span class="kw">new</span> <span class="cl">ObjectInputStream</span>(<span class="kw">new</span> <span class="cl">FileInputStream</span>(path))) {
+        <span class="cl">List</span>&lt;<span class="cl">Command</span>&gt; log = (<span class="cl">List</span>&lt;<span class="cl">Command</span>&gt;) ois.<span class="fn">readObject</span>();
+        <span class="cl">Collections</span>.<span class="fn">reverse</span>(log); <span class="cm">// restore chronological order</span>
+        log.<span class="fn">forEach</span>(cmd -> {
+            cmd.<span class="fn">rebind</span>(hero, enemy); <span class="cm">// re-wire receivers post-deserialise</span>
+            cmd.<span class="fn">execute</span>();
+        });
+    }
+}
+
+<span class="cm">// Each Command needs a rebind() method:
+// public void rebind(Hero hero, Enemy enemy) {
+//   this.hero  = hero;
+//   this.enemy = enemy;
+// }
+// This solves the stale-reference problem on deserialisation.
+//
+// Alternative: use a Command visitor that rebinds receivers,
+// keeping the rebind logic out of the command classes themselves.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S9 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">Champion</span><span class="tag tag-red">Solution 9 — Command + Observer</span></div><h3>Live battle feed without touching command internals.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">CommandExecutionListener.java + GameEngine.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="an">@FunctionalInterface</span>
+<span class="kw">public interface</span> <span class="cl">CommandExecutionListener</span> {
+    <span class="kw">void</span> <span class="fn">onExecute</span>(<span class="cl">Command</span> cmd);
+    <span class="kw">default void</span> <span class="fn">onUndo</span>(<span class="cl">Command</span> cmd) {}
+}
+
+<span class="cm">// In GameEngine:</span>
+<span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">CommandExecutionListener</span>&gt; listeners = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+
+<span class="kw">public void</span> <span class="fn">addListener</span>(<span class="cl">CommandExecutionListener</span> l) { listeners.<span class="fn">add</span>(l); }
+
+<span class="kw">public void</span> <span class="fn">execute</span>(<span class="cl">Command</span> cmd) {
+    cmd.<span class="fn">execute</span>();
+    history.<span class="fn">push</span>(cmd);
+    redoStack.<span class="fn">clear</span>();
+    listeners.<span class="fn">forEach</span>(l -> l.<span class="fn">onExecute</span>(cmd)); <span class="cm">// notify observers</span>
+}
+
+<span class="kw">public void</span> <span class="fn">undo</span>() {
+    <span class="kw">if</span> (history.<span class="fn">isEmpty</span>()) <span class="kw">return</span>;
+    <span class="cl">Command</span> cmd = history.<span class="fn">pop</span>();
+    cmd.<span class="fn">undo</span>();
+    redoStack.<span class="fn">push</span>(cmd);
+    listeners.<span class="fn">forEach</span>(l -> l.<span class="fn">onUndo</span>(cmd)); <span class="cm">// notify observers</span>
+}
+
+<span class="cm">// AchievementTracker listener:</span>
+<span class="kw">int</span>[] undoCount = {<span class="nu">0</span>};
+engine.<span class="fn">addListener</span>(<span class="kw">new</span> <span class="cl">CommandExecutionListener</span>() {
+    <span class="kw">public void</span> <span class="fn">onExecute</span>(<span class="cl">Command</span> c) { <span class="cm">/* noop */</span> }
+    <span class="kw">public void</span> <span class="fn">onUndo</span>(<span class="cl">Command</span> c) {
+        <span class="kw">if</span> (++undoCount[<span class="nu">0</span>] >= <span class="nu">3</span>)
+            <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"🏆 Achievement unlocked: Undo Master!"</span>);
+    }
+});
+
+<span class="cm">// HUD listener (lambda):
+// engine.addListener(cmd -> System.out.println("HUD: " + hero + " | " + enemy));
+//
+// Commands know nothing about observers. ✓
+// Observers know nothing about each other. ✓
+// This is the same Observer integration as Singleton Challenge 5.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S10 -->
+    <div class="challenge boss"><div class="challenge-meta"><span class="diff diff-boss">BOSS</span><span class="tag tag-purple">Solution 10 — Text Editor Domain</span></div><h3>Identical structure, completely different nouns.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">TextBuffer.java + InsertTextCommand.java + DeleteTextCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Receiver</span>
+<span class="kw">public class</span> <span class="cl">TextBuffer</span> {
+    <span class="kw">private final</span> <span class="cl">StringBuilder</span> buf = <span class="kw">new</span> <span class="cl">StringBuilder</span>();
+
+    <span class="kw">public void</span> <span class="fn">insert</span>(<span class="kw">int</span> pos, <span class="cl">String</span> text) { buf.<span class="fn">insert</span>(pos, text); }
+    <span class="kw">public void</span> <span class="fn">delete</span>(<span class="kw">int</span> pos, <span class="kw">int</span> len)    { buf.<span class="fn">delete</span>(pos, pos + len); }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">get</span>()                      { <span class="kw">return</span> buf.<span class="fn">toString</span>(); }
+}
+
+<span class="cm">// Insert command</span>
+<span class="kw">public class</span> <span class="cl">InsertTextCommand</span> <span class="kw">implements</span> <span class="cl">Command</span> {
+    <span class="kw">private final</span> <span class="cl">TextBuffer</span> buf;
+    <span class="kw">private final int</span>         pos;
+    <span class="kw">private final</span> <span class="cl">String</span>     text;
+
+    <span class="kw">public</span> <span class="fn">InsertTextCommand</span>(<span class="cl">TextBuffer</span> buf, <span class="kw">int</span> pos, <span class="cl">String</span> text) {
+        <span class="kw">this</span>.buf = buf; <span class="kw">this</span>.pos = pos; <span class="kw">this</span>.text = text;
+    }
+
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">execute</span>() { buf.<span class="fn">insert</span>(pos, text); }
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">undo</span>()    { buf.<span class="fn">delete</span>(pos, text.<span class="fn">length</span>()); }
+}
+
+<span class="cm">// Delete command</span>
+<span class="kw">public class</span> <span class="cl">DeleteTextCommand</span> <span class="kw">implements</span> <span class="cl">Command</span> {
+    <span class="kw">private final</span> <span class="cl">TextBuffer</span> buf;
+    <span class="kw">private final int</span>         pos, len;
+    <span class="kw">private</span> <span class="cl">String</span> deleted; <span class="cm">// captured during execute for undo</span>
+
+    <span class="kw">public</span> <span class="fn">DeleteTextCommand</span>(<span class="cl">TextBuffer</span> buf, <span class="kw">int</span> pos, <span class="kw">int</span> len) {
+        <span class="kw">this</span>.buf = buf; <span class="kw">this</span>.pos = pos; <span class="kw">this</span>.len = len;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        deleted = buf.<span class="fn">get</span>().<span class="fn">substring</span>(pos, pos + len); <span class="cm">// save what we delete</span>
+        buf.<span class="fn">delete</span>(pos, len);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() { buf.<span class="fn">insert</span>(pos, deleted); } <span class="cm">// re-insert exactly</span>
+}
+
+<span class="cm">// The Invoker is the same EditorEngine (rename of GameEngine).
+// The structure is IDENTICAL — only domain nouns changed:
+//   Hero/Enemy → TextBuffer
+//   AttackCommand → InsertTextCommand
+//   GameEngine → EditorEngine
+//
+// This is how VSCode, IntelliJ, and MS Word implement Ctrl+Z.
+// IntelliJ's UndoManager is literally a Command history stack. ✓</span></code></pre>
+    </div>
+
+    <div class="callout callout-purple">
+      <div class="callout-title">Real-World Connections</div>
+      <p>
+        <strong style="color:var(--accent2)">IntelliJ / VSCode:</strong> Every keystroke, deletion, and refactor is a Command. Ctrl+Z pops the history stack. Ctrl+Y re-executes from the redo stack.<br><br>
+        <strong style="color:var(--accent2)">Git:</strong> Commits are commands. <code>git revert</code> creates a new undo command. <code>git cherry-pick</code> replays a command on a different branch.<br><br>
+        <strong style="color:var(--accent2)">Networking / RPC:</strong> Remote calls are serialised commands sent over the wire. The server dequeues and executes them. This is the foundation of event sourcing.<br><br>
+        <strong style="color:var(--accent2)">Spring Batch:</strong> Jobs are composed of Steps, which are Command objects. Failed jobs can be retried (redo) or rolled back (undo) at the step level.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    event.target.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>

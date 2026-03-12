@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Factory Pattern — Vehicle Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0e0c;
+    --surface: #181714;
+    --surface2: #1f1d19;
+    --border: #2a2720;
+    --accent: #f5a623;
+    --accent2: #4ecdc4;
+    --accent3: #ff6b6b;
+    --accent4: #a8e063;
+    --accent5: #c084fc;
+    --text: #e8e0d0;
+    --text-dim: #6b6355;
+    --code-bg: #0c0b09;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Space Grotesk', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(245,166,35,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(245,166,35,0.03) 1px, transparent 1px);
+    background-size: 32px 32px; pointer-events: none; z-index: 0;
+  }
+  .container { max-width: 980px; margin: 0 auto; padding: 0 24px 100px; position: relative; z-index: 1; }
+  header { padding: 56px 0 40px; border-bottom: 1px solid var(--border); margin-bottom: 40px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+  h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(52px, 9vw, 96px); line-height: 0.9; letter-spacing: 0.02em; }
+  h1 .lo { color: var(--text-dim); } h1 .hi { color: var(--accent); }
+  .subtitle { margin-top: 18px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-dim); line-height: 1.9; max-width: 540px; }
+  .tabs { display: flex; gap: 0; margin-bottom: 40px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+  .tab-btn { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; padding: 12px 20px; border: none; background: none; color: var(--text-dim); cursor: pointer; white-space: nowrap; position: relative; transition: color 0.2s; border-right: 1px solid var(--border); }
+  .tab-btn:last-child { border-right: none; }
+  .tab-btn::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: var(--accent); transform: scaleX(0); transition: transform 0.2s; }
+  .tab-btn.active { color: var(--accent); } .tab-btn.active::after { transform: scaleX(1); } .tab-btn:hover { color: var(--text); }
+  .panel { display: none; } .panel.active { display: block; animation: fadeUp 0.3s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .section-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 10px; }
+  h2 { font-family: 'Bebas Neue', sans-serif; font-size: 36px; letter-spacing: 0.04em; margin-bottom: 10px; }
+  h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+  p { font-family: 'IBM Plex Mono', monospace; font-size: 12px; line-height: 1.9; color: var(--text-dim); margin-bottom: 14px; }
+  strong { color: var(--text); font-weight: 600; }
+  code { font-family: 'IBM Plex Mono', monospace; color: var(--accent2); font-size: 11px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 20px 22px; margin-bottom: 18px; }
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  .card-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  @media (max-width: 680px) { .card-grid, .card-grid-3 { grid-template-columns: 1fr; } }
+  .tag { display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; margin-right: 6px; margin-bottom: 8px; }
+  .tag-orange { background: rgba(245,166,35,0.12); color: var(--accent); border: 1px solid rgba(245,166,35,0.25); }
+  .tag-teal   { background: rgba(78,205,196,0.12); color: var(--accent2); border: 1px solid rgba(78,205,196,0.25); }
+  .tag-red    { background: rgba(255,107,107,0.12); color: var(--accent3); border: 1px solid rgba(255,107,107,0.25); }
+  .tag-green  { background: rgba(168,224,99,0.12); color: var(--accent4); border: 1px solid rgba(168,224,99,0.25); }
+  .tag-purple { background: rgba(192,132,252,0.12); color: var(--accent5); border: 1px solid rgba(192,132,252,0.25); }
+  .code-block { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin: 14px 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; line-height: 1.75; }
+  .code-header { background: #131210; border-bottom: 1px solid var(--border); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .code-filename { font-size: 11px; color: var(--accent2); } .code-lang { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-dim); }
+  pre { padding: 18px 20px; overflow-x: auto; scrollbar-width: thin; }
+  .kw { color: #c084fc; } .cl { color: #60a5fa; } .fn { color: #4ade80; } .st { color: #fcd34d; } .cm { color: #3d3830; } .nu { color: #fb923c; } .an { color: #f472b6; }
+  .callout { border-left: 3px solid; padding: 12px 16px; border-radius: 0 5px 5px 0; margin: 14px 0; }
+  .callout-orange { border-color: var(--accent); background: rgba(245,166,35,0.06); }
+  .callout-teal { border-color: var(--accent2); background: rgba(78,205,196,0.06); }
+  .callout-red { border-color: var(--accent3); background: rgba(255,107,107,0.06); }
+  .callout-green { border-color: var(--accent4); background: rgba(168,224,99,0.06); }
+  .callout-purple { border-color: var(--accent5); background: rgba(192,132,252,0.06); }
+  .callout-title { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; margin-bottom: 6px; }
+  .callout-orange .callout-title { color: var(--accent); } .callout-teal .callout-title { color: var(--accent2); }
+  .callout-red .callout-title { color: var(--accent3); } .callout-green .callout-title { color: var(--accent4); }
+  .callout-purple .callout-title { color: var(--accent5); }
+  .callout p { margin: 0; }
+  hr.div { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+  .diagram-wrap { background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; padding: 24px; margin: 16px 0; overflow-x: auto; }
+  .diagram-wrap svg { display: block; margin: 0 auto; }
+  .challenge { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 18px 22px; margin-bottom: 14px; position: relative; overflow: hidden; }
+  .challenge::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 3px; }
+  .challenge.easy::before { background: var(--accent4); }
+  .challenge.medium::before { background: var(--accent); }
+  .challenge.hard::before { background: var(--accent3); }
+  .challenge.boss::before { background: var(--accent5); }
+  .challenge-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .diff { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; padding: 2px 8px; border-radius: 3px; }
+  .diff-easy { background: rgba(168,224,99,0.12); color: var(--accent4); }
+  .diff-medium { background: rgba(245,166,35,0.12); color: var(--accent); }
+  .diff-hard { background: rgba(255,107,107,0.12); color: var(--accent3); }
+  .diff-boss { background: rgba(192,132,252,0.12); color: var(--accent5); }
+  .variant-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin: 16px 0; }
+  @media (max-width: 700px) { .variant-grid { grid-template-columns: 1fr; } }
+  .variant { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 14px 16px; }
+  .variant-title { font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .variant-sub { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dim); margin-bottom: 10px; }
+  ol.steps { list-style: none; counter-reset: s; }
+  ol.steps li { counter-increment: s; display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-dim); line-height: 1.8; }
+  ol.steps li:last-child { border-bottom: none; }
+  ol.steps li::before { content: counter(s, decimal-leading-zero); font-size: 10px; color: var(--accent); min-width: 26px; padding-top: 2px; flex-shrink: 0; }
+  ol.steps li strong { color: var(--text); display: block; margin-bottom: 4px; }
+  .vehicle-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 14px 16px; text-align: center; }
+  .vehicle-icon { font-size: 36px; margin-bottom: 6px; }
+  .vehicle-name { font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .vstat { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+  .vstat-label { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); }
+  .vstat-bar { flex: 1; height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin: 0 10px; }
+  .vstat-fill { height: 100%; border-radius: 2px; }
+  .vstat-val { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text); width: 32px; text-align: right; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="eyebrow">// Design Patterns — Java Workshop v3</div>
+    <h1><span class="hi">FACTORY</span><br><span class="lo">PATTERN</span></h1>
+    <p class="subtitle">Simple Switch to chaos to Factory Method to Abstract Factory. Three variants, SVG diagrams, 8 challenges with solutions.</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('baseline')">① Baseline</button>
+    <button class="tab-btn" onclick="switchTab('problem')">② The Problem</button>
+    <button class="tab-btn" onclick="switchTab('deep')">③ Deep Dive</button>
+    <button class="tab-btn" onclick="switchTab('refactor')">④ Refactored</button>
+    <button class="tab-btn" onclick="switchTab('challenges')">⑤ Challenges</button>
+    <button class="tab-btn" onclick="switchTab('solutions')">⑥ Solutions</button>
+  </nav>
+
+  <!-- PANEL 1 -->
+  <div id="panel-baseline" class="panel active">
+    <div class="section-label">// Step 01</div>
+    <h2>The Baseline App</h2>
+    <p>A small vehicle rental service. Customers request a Car, Truck, or Motorcycle. The app creates the vehicle and prints a summary. Beginner-level code — no patterns yet.</p>
+
+    <div class="card-grid-3">
+      <div class="vehicle-card">
+        <div class="vehicle-icon">🚗</div>
+        <div class="vehicle-name" style="color:var(--accent2)">Car</div>
+        <div class="vstat"><span class="vstat-label">Speed</span><div class="vstat-bar"><div class="vstat-fill" style="width:67%;background:var(--accent2)"></div></div><span class="vstat-val">120</span></div>
+        <div class="vstat"><span class="vstat-label">Fuel</span><div class="vstat-bar"><div class="vstat-fill" style="width:46%;background:var(--accent2)"></div></div><span class="vstat-val">55L</span></div>
+        <div class="vstat"><span class="vstat-label">Seats</span><div class="vstat-bar"><div class="vstat-fill" style="width:25%;background:var(--accent2)"></div></div><span class="vstat-val">5</span></div>
+      </div>
+      <div class="vehicle-card">
+        <div class="vehicle-icon">🚛</div>
+        <div class="vehicle-name" style="color:var(--accent)">Truck</div>
+        <div class="vstat"><span class="vstat-label">Speed</span><div class="vstat-bar"><div class="vstat-fill" style="width:44%;background:var(--accent)"></div></div><span class="vstat-val">80</span></div>
+        <div class="vstat"><span class="vstat-label">Fuel</span><div class="vstat-bar"><div class="vstat-fill" style="width:100%;background:var(--accent)"></div></div><span class="vstat-val">120L</span></div>
+        <div class="vstat"><span class="vstat-label">Payload</span><div class="vstat-bar"><div class="vstat-fill" style="width:90%;background:var(--accent)"></div></div><span class="vstat-val">5T</span></div>
+      </div>
+      <div class="vehicle-card">
+        <div class="vehicle-icon">🏍️</div>
+        <div class="vehicle-name" style="color:var(--accent4)">Moto</div>
+        <div class="vstat"><span class="vstat-label">Speed</span><div class="vstat-bar"><div class="vstat-fill" style="width:100%;background:var(--accent4)"></div></div><span class="vstat-val">180</span></div>
+        <div class="vstat"><span class="vstat-label">Fuel</span><div class="vstat-bar"><div class="vstat-fill" style="width:13%;background:var(--accent4)"></div></div><span class="vstat-val">15L</span></div>
+        <div class="vstat"><span class="vstat-label">Seats</span><div class="vstat-bar"><div class="vstat-fill" style="width:10%;background:var(--accent4)"></div></div><span class="vstat-val">2</span></div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Vehicle.java</span><span class="code-lang">Java — Interface</span></div>
+      <pre><code><span class="kw">public interface</span> <span class="cl">Vehicle</span> {
+    <span class="cl">String</span> <span class="fn">getType</span>();
+    <span class="kw">int</span>    <span class="fn">getSpeed</span>();
+    <span class="kw">int</span>    <span class="fn">getFuelCapacity</span>();
+    <span class="cl">String</span> <span class="fn">describe</span>();
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Car.java / Truck.java / Motorcycle.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Car</span> <span class="kw">implements</span> <span class="cl">Vehicle</span> {
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getType</span>()        { <span class="kw">return</span> <span class="st">"Car"</span>; }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getSpeed</span>()       { <span class="kw">return</span> <span class="nu">120</span>; }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getFuelCapacity</span>() { <span class="kw">return</span> <span class="nu">55</span>; }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() {
+        <span class="kw">return</span> <span class="st">"🚗 Car   | speed:"</span> + <span class="fn">getSpeed</span>() + <span class="st">" fuel:"</span> + <span class="fn">getFuelCapacity</span>() + <span class="st">"L seats:5"</span>;
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">Truck</span> <span class="kw">implements</span> <span class="cl">Vehicle</span> {
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getType</span>()        { <span class="kw">return</span> <span class="st">"Truck"</span>; }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getSpeed</span>()       { <span class="kw">return</span> <span class="nu">80</span>; }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getFuelCapacity</span>() { <span class="kw">return</span> <span class="nu">120</span>; }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() {
+        <span class="kw">return</span> <span class="st">"🚛 Truck | speed:"</span> + <span class="fn">getSpeed</span>() + <span class="st">" fuel:"</span> + <span class="fn">getFuelCapacity</span>() + <span class="st">"L payload:5T"</span>;
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">Motorcycle</span> <span class="kw">implements</span> <span class="cl">Vehicle</span> {
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getType</span>()        { <span class="kw">return</span> <span class="st">"Motorcycle"</span>; }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getSpeed</span>()       { <span class="kw">return</span> <span class="nu">180</span>; }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getFuelCapacity</span>() { <span class="kw">return</span> <span class="nu">15</span>; }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() {
+        <span class="kw">return</span> <span class="st">"🏍  Moto | speed:"</span> + <span class="fn">getSpeed</span>() + <span class="st">" fuel:"</span> + <span class="fn">getFuelCapacity</span>() + <span class="st">"L seats:2"</span>;
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Main.java — The Ticking Time Bomb</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Main</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+        <span class="cl">String</span> request = <span class="st">"car"</span>; <span class="cm">// imagine this comes from user input</span>
+
+        <span class="cl">Vehicle</span> v;
+        <span class="kw">if</span>      (request.<span class="fn">equals</span>(<span class="st">"car"</span>))        v = <span class="kw">new</span> <span class="cl">Car</span>();
+        <span class="kw">else if</span> (request.<span class="fn">equals</span>(<span class="st">"truck"</span>))      v = <span class="kw">new</span> <span class="cl">Truck</span>();
+        <span class="kw">else if</span> (request.<span class="fn">equals</span>(<span class="st">"motorcycle"</span>)) v = <span class="kw">new</span> <span class="cl">Motorcycle</span>();
+        <span class="kw">else throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Unknown vehicle"</span>);
+
+        <span class="cl">System</span>.out.<span class="fn">println</span>(v.<span class="fn">describe</span>());
+    }
+}
+<span class="cm">// Output:
+// 🚗 Car | speed:120 fuel:55L seats:5</span></code></pre>
+    </div>
+
+    <div class="callout callout-green">
+      <div class="callout-title">This Works — For Now</div>
+      <p>Clean vehicle classes. The problem is entirely in how objects are <strong>created</strong>. That if/else in main() is a ticking time bomb. Click ② to see it explode.</p>
+    </div>
+  </div>
+
+  <!-- PANEL 2 -->
+  <div id="panel-problem" class="panel">
+    <div class="section-label">// Step 02</div>
+    <h2>New Requirements That Break It</h2>
+    <p>The rental company expands. New vehicle types arrive. The creation logic is duplicated everywhere — and every new type requires hunting through the whole codebase.</p>
+
+    <div class="callout callout-red">
+      <div class="callout-title">New Requirements</div>
+      <p>Add <strong>Van</strong>, <strong>ElectricCar</strong>, and <strong>Scooter</strong>. The if/else creation block now exists in 4 different files. Adding "Van" means editing all four.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Creation logic duplicated everywhere</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// BookingService.java</span>
+<span class="kw">if</span>      (type.<span class="fn">equals</span>(<span class="st">"car"</span>))        v = <span class="kw">new</span> <span class="cl">Car</span>();
+<span class="kw">else if</span> (type.<span class="fn">equals</span>(<span class="st">"truck"</span>))      v = <span class="kw">new</span> <span class="cl">Truck</span>();
+<span class="kw">else if</span> (type.<span class="fn">equals</span>(<span class="st">"motorcycle"</span>)) v = <span class="kw">new</span> <span class="cl">Motorcycle</span>();
+<span class="cm">// add Van here...</span>
+
+<span class="cm">// ReservationAPI.java — same block, copy-pasted</span>
+<span class="cm">// AdminPanel.java     — same block again</span>
+<span class="cm">// TestSuite.java      — same block again</span>
+<span class="cm">// → forget one? Wrong vehicle created silently.</span></code></pre>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Open/Closed Principle</h3>
+        <p>Adding <code>Van</code> requires modifying every file that has a creation block. Classes should be open for extension, closed for modification.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>DRY Principle</h3>
+        <p>Same if/else creation logic copy-pasted into multiple classes. One missed update is a bug that is nearly impossible to trace.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Single Responsibility</h3>
+        <p><code>BookingService</code> should book vehicles, not decide how to construct them. Construction knowledge is not its job.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Dependency Inversion</h3>
+        <p>High-level modules directly depend on concrete classes (<code>new Car()</code>, <code>new Truck()</code>). They should depend on abstractions.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-orange">
+      <div class="callout-title">The Core Insight</div>
+      <p>The Factory Pattern's job is simple: <strong>centralise object creation</strong>. Instead of callers knowing how to build a Vehicle, they ask a Factory for a Vehicle. The caller never touches <code>new Car()</code> directly.</p>
+    </div>
+  </div>
+
+  <!-- PANEL 3 -->
+  <div id="panel-deep" class="panel">
+    <div class="section-label">// Step 03</div>
+    <h2>Deep Dive — Three Factory Variants</h2>
+    <p>"Factory" is actually a family of three related patterns. Understanding when to use each one is the real skill.</p>
+
+    <div class="variant-grid">
+      <div class="variant">
+        <div class="variant-title" style="color:var(--accent4)">Static Factory</div>
+        <div class="variant-sub">aka "Simple Factory"</div>
+        <p>A single class with a static method. Not a GoF pattern — just a useful helper. Great starting point.</p>
+        <span class="tag tag-green">Simplest</span>
+      </div>
+      <div class="variant">
+        <div class="variant-title" style="color:var(--accent)">Factory Method</div>
+        <div class="variant-sub">GoF Creational Pattern</div>
+        <p>An abstract creator class with a <code>createVehicle()</code> method. Subclasses decide what to create.</p>
+        <span class="tag tag-orange">Most Common</span>
+      </div>
+      <div class="variant">
+        <div class="variant-title" style="color:var(--accent5)">Abstract Factory</div>
+        <div class="variant-sub">GoF Creational Pattern</div>
+        <p>A factory of factories. Creates families of related objects that must be compatible with each other.</p>
+        <span class="tag tag-purple">Most Powerful</span>
+      </div>
+    </div>
+
+    <hr class="div">
+
+    <h3>Diagram 1 — Static Factory</h3>
+    <p>The client calls one static method. All <code>new</code> keywords live inside that one method. Nothing more.</p>
+    <div class="diagram-wrap">
+      <svg width="600" height="190" viewBox="0 0 600 190" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono, monospace" font-size="12">
+        <defs>
+          <marker id="arr1" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#f5a623"/>
+          </marker>
+          <marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#4ecdc4"/>
+          </marker>
+        </defs>
+        <!-- Client -->
+        <rect x="10" y="68" width="110" height="44" rx="4" fill="#181714" stroke="#2a2720" stroke-width="1.5"/>
+        <text x="65" y="95" text-anchor="middle" fill="#e8e0d0" font-size="13" font-weight="600">Client</text>
+        <!-- Arrow -->
+        <line x1="120" y1="90" x2="185" y2="90" stroke="#f5a623" stroke-width="1.5" marker-end="url(#arr1)"/>
+        <text x="152" y="83" text-anchor="middle" fill="#6b6355" font-size="9">create("car")</text>
+        <!-- Factory -->
+        <rect x="188" y="52" width="175" height="76" rx="4" fill="#181714" stroke="#f5a623" stroke-width="1.5"/>
+        <text x="275" y="74" text-anchor="middle" fill="#f5a623" font-size="10">«static»</text>
+        <text x="275" y="91" text-anchor="middle" fill="#e8e0d0" font-size="14" font-weight="700">VehicleFactory</text>
+        <text x="275" y="108" text-anchor="middle" fill="#6b6355" font-size="10">create(String type)</text>
+        <!-- Dashed lines to products -->
+        <line x1="363" y1="74" x2="415" y2="44" stroke="#4ecdc4" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+        <line x1="363" y1="90" x2="415" y2="90" stroke="#4ecdc4" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+        <line x1="363" y1="106" x2="415" y2="144" stroke="#4ecdc4" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arr2)"/>
+        <!-- Products -->
+        <rect x="418" y="26" width="90" height="32" rx="3" fill="#0c0b09" stroke="#2a2720"/>
+        <text x="463" y="47" text-anchor="middle" fill="#4ecdc4" font-size="12">Car</text>
+        <rect x="418" y="74" width="90" height="32" rx="3" fill="#0c0b09" stroke="#2a2720"/>
+        <text x="463" y="95" text-anchor="middle" fill="#4ecdc4" font-size="12">Truck</text>
+        <rect x="418" y="126" width="90" height="32" rx="3" fill="#0c0b09" stroke="#2a2720"/>
+        <text x="463" y="147" text-anchor="middle" fill="#4ecdc4" font-size="12">Motorcycle</text>
+        <!-- Vehicle interface -->
+        <rect x="524" y="72" width="68" height="36" rx="3" fill="#0c0b09" stroke="#2a2720" stroke-dasharray="5,3"/>
+        <text x="558" y="87" text-anchor="middle" fill="#6b6355" font-size="8">«interface»</text>
+        <text x="558" y="100" text-anchor="middle" fill="#a8e063" font-size="10">Vehicle</text>
+        <line x1="508" y1="42" x2="524" y2="80" stroke="#2a2720"/>
+        <line x1="508" y1="90" x2="524" y2="90" stroke="#2a2720"/>
+        <line x1="508" y1="142" x2="524" y2="100" stroke="#2a2720"/>
+      </svg>
+    </div>
+
+    <h3 style="margin-top:20px">Diagram 2 — Factory Method Pattern</h3>
+    <p>An abstract creator defines <code>createVehicle()</code> as abstract. Concrete subclasses implement it. The parent holds the workflow; children decide what to build.</p>
+    <div class="diagram-wrap">
+      <svg width="620" height="252" viewBox="0 0 620 252" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono, monospace" font-size="12">
+        <defs>
+          <marker id="tri1" markerWidth="10" markerHeight="8" refX="0" refY="4" orient="auto">
+            <polygon points="0,0 10,4 0,8" fill="none" stroke="#c084fc" stroke-width="1.5"/>
+          </marker>
+        </defs>
+        <!-- Abstract Creator -->
+        <rect x="210" y="8" width="200" height="66" rx="4" fill="#181714" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="6,3"/>
+        <text x="310" y="27" text-anchor="middle" fill="#c084fc" font-size="9">«abstract»</text>
+        <text x="310" y="45" text-anchor="middle" fill="#e8e0d0" font-size="13" font-weight="700">RentalAgency</text>
+        <text x="310" y="62" text-anchor="middle" fill="#6b6355" font-size="10">createVehicle(): Vehicle</text>
+        <!-- Inheritance lines -->
+        <line x1="260" y1="74" x2="150" y2="130" stroke="#c084fc" stroke-width="1.5"/>
+        <line x1="360" y1="74" x2="470" y2="130" stroke="#c084fc" stroke-width="1.5"/>
+        <polygon points="145,124 158,138 132,138" fill="none" stroke="#c084fc" stroke-width="1.5"/>
+        <polygon points="465,124 478,138 452,138" fill="none" stroke="#c084fc" stroke-width="1.5"/>
+        <!-- Concrete creators -->
+        <rect x="60" y="140" width="175" height="58" rx="4" fill="#181714" stroke="#2a2720" stroke-width="1.5"/>
+        <text x="147" y="160" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="600">CityAgency</text>
+        <text x="147" y="177" text-anchor="middle" fill="#6b6355" font-size="10">createVehicle()</text>
+        <text x="147" y="192" text-anchor="middle" fill="#6b6355" font-size="10">→ new Car()</text>
+        <rect x="385" y="140" width="175" height="58" rx="4" fill="#181714" stroke="#2a2720" stroke-width="1.5"/>
+        <text x="472" y="160" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="600">FreightAgency</text>
+        <text x="472" y="177" text-anchor="middle" fill="#6b6355" font-size="10">createVehicle()</text>
+        <text x="472" y="192" text-anchor="middle" fill="#6b6355" font-size="10">→ new Truck()</text>
+        <!-- Products -->
+        <rect x="80" y="222" width="80" height="26" rx="3" fill="#0c0b09" stroke="#4ecdc4"/>
+        <text x="120" y="240" text-anchor="middle" fill="#4ecdc4" font-size="11">Car</text>
+        <line x1="120" y1="198" x2="120" y2="222" stroke="#4ecdc4" stroke-dasharray="3,2"/>
+        <rect x="460" y="222" width="80" height="26" rx="3" fill="#0c0b09" stroke="#4ecdc4"/>
+        <text x="500" y="240" text-anchor="middle" fill="#4ecdc4" font-size="11">Truck</text>
+        <line x1="500" y1="198" x2="500" y2="222" stroke="#4ecdc4" stroke-dasharray="3,2"/>
+        <!-- Vehicle interface -->
+        <rect x="265" y="222" width="110" height="26" rx="3" fill="#0c0b09" stroke="#2a2720" stroke-dasharray="5,3"/>
+        <text x="320" y="237" text-anchor="middle" fill="#6b6355" font-size="8">«interface»</text>
+        <text x="320" y="248" text-anchor="middle" fill="#a8e063" font-size="10">Vehicle</text>
+        <line x1="160" y1="220" x2="265" y2="235" stroke="#2a2720"/>
+        <line x1="460" y1="220" x2="375" y2="235" stroke="#2a2720"/>
+      </svg>
+    </div>
+
+    <h3 style="margin-top:20px">Diagram 3 — Abstract Factory Pattern</h3>
+    <p>Two parallel hierarchies: factories and products. Concrete factories (<code>ElectricFleet</code>, <code>CombustionFleet</code>) produce entire compatible families of vehicles.</p>
+    <div class="diagram-wrap">
+      <svg width="620" height="270" viewBox="0 0 620 270" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Mono, monospace" font-size="12">
+        <!-- Abstract Factory -->
+        <rect x="210" y="6" width="200" height="60" rx="4" fill="#181714" stroke="#c084fc" stroke-width="1.5" stroke-dasharray="6,3"/>
+        <text x="310" y="24" text-anchor="middle" fill="#c084fc" font-size="9">«interface»</text>
+        <text x="310" y="41" text-anchor="middle" fill="#e8e0d0" font-size="13" font-weight="700">FleetFactory</text>
+        <text x="310" y="57" text-anchor="middle" fill="#6b6355" font-size="9">createCity() / createHighway()</text>
+        <!-- Lines to concrete -->
+        <line x1="258" y1="66" x2="150" y2="124" stroke="#c084fc" stroke-width="1.5"/>
+        <line x1="362" y1="66" x2="470" y2="124" stroke="#c084fc" stroke-width="1.5"/>
+        <polygon points="145,118 158,132 132,132" fill="none" stroke="#c084fc" stroke-width="1.5"/>
+        <polygon points="465,118 478,132 452,132" fill="none" stroke="#c084fc" stroke-width="1.5"/>
+        <!-- Concrete factories -->
+        <rect x="40" y="132" width="200" height="60" rx="4" fill="#181714" stroke="#2a2720"/>
+        <text x="140" y="152" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="600">ElectricFleet</text>
+        <text x="140" y="169" text-anchor="middle" fill="#6b6355" font-size="9">createCity() → ElectricCar</text>
+        <text x="140" y="184" text-anchor="middle" fill="#6b6355" font-size="9">createHighway() → ElectricTruck</text>
+        <rect x="380" y="132" width="200" height="60" rx="4" fill="#181714" stroke="#2a2720"/>
+        <text x="480" y="152" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="600">CombustionFleet</text>
+        <text x="480" y="169" text-anchor="middle" fill="#6b6355" font-size="9">createCity() → Car</text>
+        <text x="480" y="184" text-anchor="middle" fill="#6b6355" font-size="9">createHighway() → Truck</text>
+        <!-- Product boxes -->
+        <rect x="30" y="220" width="100" height="28" rx="3" fill="#0c0b09" stroke="#4ecdc4"/>
+        <text x="80" y="239" text-anchor="middle" fill="#4ecdc4" font-size="10">ElectricCar</text>
+        <rect x="148" y="220" width="108" height="28" rx="3" fill="#0c0b09" stroke="#4ecdc4"/>
+        <text x="202" y="239" text-anchor="middle" fill="#4ecdc4" font-size="10">ElectricTruck</text>
+        <rect x="392" y="220" width="80" height="28" rx="3" fill="#0c0b09" stroke="#4ecdc4"/>
+        <text x="432" y="239" text-anchor="middle" fill="#4ecdc4" font-size="10">Car</text>
+        <rect x="488" y="220" width="80" height="28" rx="3" fill="#0c0b09" stroke="#4ecdc4"/>
+        <text x="528" y="239" text-anchor="middle" fill="#4ecdc4" font-size="10">Truck</text>
+        <line x1="80"  y1="192" x2="80"  y2="220" stroke="#4ecdc4" stroke-dasharray="3,2"/>
+        <line x1="140" y1="192" x2="202" y2="220" stroke="#4ecdc4" stroke-dasharray="3,2"/>
+        <line x1="460" y1="192" x2="432" y2="220" stroke="#4ecdc4" stroke-dasharray="3,2"/>
+        <line x1="500" y1="192" x2="528" y2="220" stroke="#4ecdc4" stroke-dasharray="3,2"/>
+        <text x="140" y="264" text-anchor="middle" fill="#6b6355" font-size="9">-- Electric Family --</text>
+        <text x="470" y="264" text-anchor="middle" fill="#6b6355" font-size="9">-- Combustion Family --</text>
+      </svg>
+    </div>
+
+    <hr class="div">
+    <div class="section-label">// When to Use Which</div>
+    <ol class="steps">
+      <li><div><strong>Use Static Factory</strong>Creation logic is simple and stable. Good for utilities and getting started. Not GoF — just a clean helper.</div></li>
+      <li><div><strong>Use Factory Method</strong>Different contexts need different implementations. A city agency creates Cars; a freight agency creates Trucks. The pattern delegates the "which" to subclasses while keeping the workflow in the parent.</div></li>
+      <li><div><strong>Use Abstract Factory</strong>You need entire families of related objects that must stay consistent. An electric fleet should never accidentally mix with a combustion vehicle. Abstract Factory enforces family-level consistency.</div></li>
+      <li><div><strong>Common mistake: over-engineering</strong>Start with Static Factory. Graduate to Factory Method when you need polymorphic construction. Reach for Abstract Factory only when you truly have multiple product families. Never jump straight to Abstract Factory for a three-vehicle system.</div></li>
+    </ol>
+
+    <div class="callout callout-teal">
+      <div class="callout-title">The Dependency Inversion Principle</div>
+      <p>High-level modules should not depend on low-level modules. Before the factory, <code>BookingService</code> calls <code>new Car()</code> — coupled to concrete. After, it calls <code>factory.create("car")</code> — depends only on <code>Vehicle</code>. That is Dependency Inversion in action.</p>
+    </div>
+  </div>
+
+  <!-- PANEL 4 -->
+  <div id="panel-refactor" class="panel">
+    <div class="section-label">// Step 04</div>
+    <h2>Refactored — All Three Variants</h2>
+    <p>All three factory variants implemented on the same domain so you can compare them side by side.</p>
+
+    <div class="callout callout-orange"><div class="callout-title">Variant A — Static Factory</div><p>One class, one static method. All <code>new</code> keywords in one place.</p></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">VehicleFactory.java — Static Factory</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">VehicleFactory</span> {
+
+    <span class="kw">private</span> <span class="fn">VehicleFactory</span>() {} <span class="cm">// prevent instantiation</span>
+
+    <span class="kw">public static</span> <span class="cl">Vehicle</span> <span class="fn">create</span>(<span class="cl">String</span> type) {
+        <span class="kw">return switch</span> (type.<span class="fn">toLowerCase</span>()) {
+            <span class="kw">case</span> <span class="st">"car"</span>        -> <span class="kw">new</span> <span class="cl">Car</span>();
+            <span class="kw">case</span> <span class="st">"truck"</span>      -> <span class="kw">new</span> <span class="cl">Truck</span>();
+            <span class="kw">case</span> <span class="st">"motorcycle"</span> -> <span class="kw">new</span> <span class="cl">Motorcycle</span>();
+            <span class="kw">case</span> <span class="st">"van"</span>        -> <span class="kw">new</span> <span class="cl">Van</span>();         <span class="cm">// add new types HERE</span>
+            <span class="kw">case</span> <span class="st">"electric"</span>   -> <span class="kw">new</span> <span class="cl">ElectricCar</span>(); <span class="cm">// only HERE</span>
+            <span class="kw">default</span>          ->
+                <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Unknown: "</span> + type);
+        };
+    }
+}
+
+<span class="cm">// BookingService, ReservationAPI, AdminPanel — all now call:
+// Vehicle v = VehicleFactory.create(type);
+// Not a single 'new Car()' outside this class.</span></code></pre>
+    </div>
+
+    <hr class="div">
+    <div class="callout callout-purple"><div class="callout-title">Variant B — Factory Method Pattern</div><p>Abstract creator class. The parent defines the booking workflow; subclasses decide what vehicle to build.</p></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">RentalAgency.java — Abstract Creator</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public abstract class</span> <span class="cl">RentalAgency</span> {
+
+    <span class="cm">// THE factory method — subclasses MUST implement this</span>
+    <span class="kw">protected abstract</span> <span class="cl">Vehicle</span> <span class="fn">createVehicle</span>();
+
+    <span class="cm">// Template method — uses the factory method internally</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">bookVehicle</span>(<span class="cl">String</span> customer) {
+        <span class="cl">Vehicle</span> v = <span class="fn">createVehicle</span>(); <span class="cm">// delegates to subclass</span>
+        <span class="kw">return</span> <span class="cl">String</span>.<span class="fn">format</span>(<span class="st">"[BOOKING] %s reserved a %s at %s"</span>,
+            customer, v.<span class="fn">getType</span>(), <span class="fn">getClass</span>().<span class="fn">getSimpleName</span>());
+    }
+}</code></pre>
+    </div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">CityAgency.java / FreightAgency.java / SpeedAgency.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">CityAgency</span>   <span class="kw">extends</span> <span class="cl">RentalAgency</span> {
+    <span class="an">@Override</span> <span class="kw">protected</span> <span class="cl">Vehicle</span> <span class="fn">createVehicle</span>() { <span class="kw">return new</span> <span class="cl">Car</span>(); }
+}
+
+<span class="kw">public class</span> <span class="cl">FreightAgency</span> <span class="kw">extends</span> <span class="cl">RentalAgency</span> {
+    <span class="an">@Override</span> <span class="kw">protected</span> <span class="cl">Vehicle</span> <span class="fn">createVehicle</span>() { <span class="kw">return new</span> <span class="cl">Truck</span>(); }
+}
+
+<span class="kw">public class</span> <span class="cl">SpeedAgency</span>   <span class="kw">extends</span> <span class="cl">RentalAgency</span> {
+    <span class="an">@Override</span> <span class="kw">protected</span> <span class="cl">Vehicle</span> <span class="fn">createVehicle</span>() { <span class="kw">return new</span> <span class="cl">Motorcycle</span>(); }
+}
+
+<span class="cm">// Usage:
+// RentalAgency agency = new CityAgency();
+// System.out.println(agency.bookVehicle("Alice"));
+// → [BOOKING] Alice reserved a Car at CityAgency
+//
+// agency = new FreightAgency();
+// System.out.println(agency.bookVehicle("Bob"));
+// → [BOOKING] Bob reserved a Truck at FreightAgency</span></code></pre>
+    </div>
+
+    <hr class="div">
+    <div class="callout callout-purple"><div class="callout-title">Variant C — Abstract Factory Pattern</div><p>Creates families of compatible vehicles. Swapping one factory swaps the entire fleet.</p></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">FleetFactory.java + ElectricFleet.java + CombustionFleet.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public interface</span> <span class="cl">FleetFactory</span> {
+    <span class="cl">Vehicle</span> <span class="fn">createCityVehicle</span>();
+    <span class="cl">Vehicle</span> <span class="fn">createHighwayVehicle</span>();
+    <span class="cl">Vehicle</span> <span class="fn">createDeliveryVehicle</span>();
+}
+
+<span class="kw">public class</span> <span class="cl">ElectricFleet</span> <span class="kw">implements</span> <span class="cl">FleetFactory</span> {
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Vehicle</span> <span class="fn">createCityVehicle</span>()     { <span class="kw">return new</span> <span class="cl">ElectricCar</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Vehicle</span> <span class="fn">createHighwayVehicle</span>()  { <span class="kw">return new</span> <span class="cl">ElectricTruck</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Vehicle</span> <span class="fn">createDeliveryVehicle</span>() { <span class="kw">return new</span> <span class="cl">ElectricVan</span>(); }
+}
+
+<span class="kw">public class</span> <span class="cl">CombustionFleet</span> <span class="kw">implements</span> <span class="cl">FleetFactory</span> {
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Vehicle</span> <span class="fn">createCityVehicle</span>()     { <span class="kw">return new</span> <span class="cl">Car</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Vehicle</span> <span class="fn">createHighwayVehicle</span>()  { <span class="kw">return new</span> <span class="cl">Truck</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Vehicle</span> <span class="fn">createDeliveryVehicle</span>() { <span class="kw">return new</span> <span class="cl">Van</span>(); }
+}
+
+<span class="cm">// Client — swap factories to swap the entire fleet:
+// FleetFactory factory = new ElectricFleet();
+// factory.createCityVehicle();    → ElectricCar
+// factory.createHighwayVehicle(); → ElectricTruck
+//
+// factory = new CombustionFleet(); // ONE LINE CHANGE
+// factory.createCityVehicle();    → Car
+// factory.createHighwayVehicle(); → Truck</span></code></pre>
+    </div>
+  </div>
+
+  <!-- PANEL 5 -->
+  <div id="panel-challenges" class="panel">
+    <div class="section-label">// Step 05</div>
+    <h2>Practice Challenges</h2>
+    <p>Eight challenges across all three factory variants. Always attempt before checking Solutions.</p>
+
+    <div class="challenge easy">
+      <div class="challenge-meta"><span class="diff diff-easy">Rookie</span><span class="tag tag-green">Challenge 1</span></div>
+      <h3>Add a Van to the Static Factory</h3>
+      <p>Create a <code>Van</code> class (speed:100, fuel:80L, seats:8) and add it to <code>VehicleFactory.create()</code>. Confirm that <code>VehicleFactory.create("van")</code> works and that zero existing vehicle classes changed.</p>
+      <div class="callout callout-green" style="margin-top:10px"><div class="callout-title">Goal</div><p>Adding a new vehicle type requires only (a) one new class and (b) one new case in the factory. No other file changes.</p></div>
+    </div>
+
+    <div class="challenge easy">
+      <div class="challenge-meta"><span class="diff diff-easy">Rookie</span><span class="tag tag-green">Challenge 2</span></div>
+      <h3>Registry-Based Factory</h3>
+      <p>Refactor <code>VehicleFactory</code> to use a <code>Map&lt;String, Supplier&lt;Vehicle&gt;&gt;</code> registry. New vehicle types can be registered with <code>VehicleFactory.register("van", Van::new)</code> — without ever modifying the factory class again.</p>
+      <div class="callout callout-teal" style="margin-top:10px"><div class="callout-title">Think About</div><p>This makes the factory fully Open/Closed. What are the trade-offs vs a switch statement? When would you prefer each approach?</p></div>
+    </div>
+
+    <div class="challenge medium">
+      <div class="challenge-meta"><span class="diff diff-medium">Pro</span><span class="tag tag-orange">Challenge 3</span></div>
+      <h3>Parameterised Factory Method</h3>
+      <p>Extend the Factory Method variant so <code>createVehicle()</code> accepts a <code>VehicleConfig</code> record with <code>colour</code>, <code>plateNumber</code>, and <code>isAutomatic</code>. Update <code>CityAgency</code> and <code>FreightAgency</code> to pass config down to their concrete vehicles.</p>
+      <div class="callout callout-orange" style="margin-top:10px"><div class="callout-title">Think About</div><p>What is the cleanest way to pass config to each vehicle class? Should the vehicle store the config or extract individual fields?</p></div>
+    </div>
+
+    <div class="challenge medium">
+      <div class="challenge-meta"><span class="diff diff-medium">Pro</span><span class="tag tag-orange">Challenge 4</span></div>
+      <h3>Logging Factory Wrapper</h3>
+      <p>Create a <code>LoggingVehicleFactory</code> that wraps <code>VehicleFactory</code>. Every call to <code>create()</code> logs the type requested, a timestamp, and the class name of the created object. The rest of the codebase should not need to change.</p>
+      <div class="callout callout-teal" style="margin-top:10px"><div class="callout-title">Hint</div><p>This combines Factory with Proxy. Extract a <code>IVehicleFactory</code> interface so both implementations are swappable to the caller.</p></div>
+    </div>
+
+    <div class="challenge medium">
+      <div class="challenge-meta"><span class="diff diff-medium">Pro</span><span class="tag tag-orange">Challenge 5</span></div>
+      <h3>Add HybridFleet to the Abstract Factory</h3>
+      <p>Add a <code>HybridFleet</code> that creates <code>HybridCar</code> (city), <code>HybridTruck</code> (highway), <code>HybridVan</code> (delivery). Verify that swapping <code>new ElectricFleet()</code> with <code>new HybridFleet()</code> is the only client change required.</p>
+      <div class="callout callout-orange" style="margin-top:10px"><div class="callout-title">Goal</div><p>This is the key demonstration of Abstract Factory power: swap an entire product family with one line.</p></div>
+    </div>
+
+    <div class="challenge hard">
+      <div class="challenge-meta"><span class="diff diff-hard">Elite</span><span class="tag tag-red">Challenge 6</span></div>
+      <h3>Config File Factory (Reflection)</h3>
+      <p>Load vehicle type mappings from a <code>vehicles.properties</code> file (<code>car=com.rental.Car</code>, etc.). Use <code>Class.forName()</code> to instantiate. Adding "hovercraft" to the app requires only a new class and a new properties line — zero Java code changes.</p>
+      <div class="callout callout-red" style="margin-top:10px"><div class="callout-title">Think About</div><p>This is how Spring's BeanFactory works at its core. What are the risks of reflection-based factories? (Type safety, error messages, performance.)</p></div>
+    </div>
+
+    <div class="challenge hard">
+      <div class="challenge-meta"><span class="diff diff-hard">Elite</span><span class="tag tag-red">Challenge 7</span></div>
+      <h3>Factory Method + Template Method Combo</h3>
+      <p>Extend <code>RentalAgency</code> so <code>bookVehicle()</code> is a full Template Method with steps: <code>validateCustomer()</code> → <code>createVehicle()</code> → <code>prepareVehicle()</code> → <code>issueReceipt()</code>. Make the first two overridable with defaults. <code>FreightAgency</code> should override <code>validateCustomer()</code> to require a commercial licence prefix.</p>
+      <div class="callout callout-red" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>Factory Method is almost always found inside a Template Method in real codebases. This is the backbone of Spring's <code>AbstractApplicationContext</code> and JUnit's test lifecycle.</p></div>
+    </div>
+
+    <div class="challenge boss">
+      <div class="challenge-meta"><span class="diff diff-boss">Boss</span><span class="tag tag-purple">Challenge 8</span></div>
+      <h3>New Domain — UI Component Abstract Factory</h3>
+      <p>Redesign Abstract Factory for a cross-platform UI toolkit. <code>UIFactory</code> creates: <code>Button</code>, <code>TextField</code>, <code>Dropdown</code>. Implement <code>WindowsUIFactory</code> and <code>MacUIFactory</code>. The app's rendering code uses only <code>UIFactory</code> — swapping platform is one line.</p>
+      <div class="callout callout-purple" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This is the canonical GoF Abstract Factory example. It is also exactly how Java Swing's pluggable look-and-feel system works. Finishing this means you fully understand the pattern.</p></div>
+    </div>
+  </div>
+
+  <!-- PANEL 6 -->
+  <div id="panel-solutions" class="panel">
+    <div class="section-label">// Step 06</div>
+    <h2>Challenge Solutions</h2>
+    <p>Full solutions with design commentary. Always try first.</p>
+
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Rookie</span><span class="tag tag-green">Solution 1 — Add Van</span></div><h3>One new file. One new case in the factory.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Van.java + VehicleFactory.java (one line)</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Van</span> <span class="kw">implements</span> <span class="cl">Vehicle</span> {
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getType</span>()        { <span class="kw">return</span> <span class="st">"Van"</span>; }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getSpeed</span>()       { <span class="kw">return</span> <span class="nu">100</span>; }
+    <span class="an">@Override</span> <span class="kw">public int</span>    <span class="fn">getFuelCapacity</span>() { <span class="kw">return</span> <span class="nu">80</span>; }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() {
+        <span class="kw">return</span> <span class="st">"🚐 Van  | speed:100 fuel:80L seats:8"</span>;
+    }
+}
+
+<span class="cm">// In VehicleFactory.create() — add ONE case:</span>
+<span class="kw">case</span> <span class="st">"van"</span> -> <span class="kw">new</span> <span class="cl">Van</span>();
+<span class="cm">// BookingService, ReservationAPI etc. change nothing. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Rookie</span><span class="tag tag-green">Solution 2 — Registry-Based Factory</span></div><h3>Map&lt;String, Supplier&lt;Vehicle&gt;&gt; makes the factory truly Open/Closed.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">VehicleFactory.java — Registry approach</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.*;
+<span class="kw">import</span> java.util.function.*;
+
+<span class="kw">public class</span> <span class="cl">VehicleFactory</span> {
+    <span class="kw">private static final</span> <span class="cl">Map</span>&lt;<span class="cl">String</span>, <span class="cl">Supplier</span>&lt;<span class="cl">Vehicle</span>&gt;&gt; REGISTRY = <span class="kw">new</span> <span class="cl">HashMap</span>&lt;&gt;();
+
+    <span class="kw">static</span> {
+        REGISTRY.<span class="fn">put</span>(<span class="st">"car"</span>,        <span class="cl">Car</span>::<span class="kw">new</span>);
+        REGISTRY.<span class="fn">put</span>(<span class="st">"truck"</span>,      <span class="cl">Truck</span>::<span class="kw">new</span>);
+        REGISTRY.<span class="fn">put</span>(<span class="st">"motorcycle"</span>, <span class="cl">Motorcycle</span>::<span class="kw">new</span>);
+    }
+
+    <span class="cm">// External code can register new types — factory never changes again</span>
+    <span class="kw">public static void</span> <span class="fn">register</span>(<span class="cl">String</span> type, <span class="cl">Supplier</span>&lt;<span class="cl">Vehicle</span>&gt; s) {
+        REGISTRY.<span class="fn">put</span>(type.<span class="fn">toLowerCase</span>(), s);
+    }
+
+    <span class="kw">public static</span> <span class="cl">Vehicle</span> <span class="fn">create</span>(<span class="cl">String</span> type) {
+        <span class="cl">Supplier</span>&lt;<span class="cl">Vehicle</span>&gt; s = REGISTRY.<span class="fn">get</span>(type.<span class="fn">toLowerCase</span>());
+        <span class="kw">if</span> (s == <span class="kw">null</span>) <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Unknown: "</span> + type);
+        <span class="kw">return</span> s.<span class="fn">get</span>();
+    }
+}
+
+<span class="cm">// Anywhere in startup — no factory edit required:
+// VehicleFactory.register("hovercraft", Hovercraft::new);
+// Vehicle h = VehicleFactory.create("hovercraft"); ✓</span></code></pre>
+    </div>
+    <div class="callout callout-teal"><div class="callout-title">Switch vs Registry</div><p><strong>Switch:</strong> compile-time safe, easy to read, fine for stable types. <strong>Registry:</strong> fully Open/Closed, supports plugins. Trade-off: type errors surface at runtime not compile time. Prefer switch for internal types, registry for plugin systems.</p></div>
+
+    <hr class="div">
+
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Pro</span><span class="tag tag-orange">Solution 3 — Parameterised Factory Method</span></div><h3>Pass a config record through the abstract factory method.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">VehicleConfig.java + RentalAgency.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Java 16+ record — immutable config carrier</span>
+<span class="kw">public record</span> <span class="cl">VehicleConfig</span>(<span class="cl">String</span> colour, <span class="cl">String</span> plateNumber, <span class="kw">boolean</span> isAutomatic) {}
+
+<span class="kw">public abstract class</span> <span class="cl">RentalAgency</span> {
+    <span class="kw">protected abstract</span> <span class="cl">Vehicle</span> <span class="fn">createVehicle</span>(<span class="cl">VehicleConfig</span> config);
+
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">bookVehicle</span>(<span class="cl">String</span> customer, <span class="cl">VehicleConfig</span> config) {
+        <span class="cl">Vehicle</span> v = <span class="fn">createVehicle</span>(config);
+        <span class="kw">return</span> <span class="cl">String</span>.<span class="fn">format</span>(<span class="st">"[%s] %s booked %s plate:%s colour:%s auto:%b"</span>,
+            <span class="fn">getClass</span>().<span class="fn">getSimpleName</span>(), customer,
+            v.<span class="fn">getType</span>(), config.<span class="fn">plateNumber</span>(), config.<span class="fn">colour</span>(), config.<span class="fn">isAutomatic</span>());
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">CityAgency</span> <span class="kw">extends</span> <span class="cl">RentalAgency</span> {
+    <span class="an">@Override</span>
+    <span class="kw">protected</span> <span class="cl">Vehicle</span> <span class="fn">createVehicle</span>(<span class="cl">VehicleConfig</span> config) {
+        <span class="kw">return new</span> <span class="cl">Car</span>(config); <span class="cm">// Car constructor accepts config</span>
+    }
+}</code></pre>
+    </div>
+
+    <hr class="div">
+
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Pro</span><span class="tag tag-orange">Solution 4 — Logging Factory Wrapper</span></div><h3>Proxy wraps the factory transparently via a shared interface.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">IVehicleFactory.java + LoggingVehicleFactory.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public interface</span> <span class="cl">IVehicleFactory</span> { <span class="cl">Vehicle</span> <span class="fn">create</span>(<span class="cl">String</span> type); }
+
+<span class="kw">public class</span> <span class="cl">VehicleFactory</span> <span class="kw">implements</span> <span class="cl">IVehicleFactory</span> { <span class="cm">/* existing logic */</span> }
+
+<span class="kw">public class</span> <span class="cl">LoggingVehicleFactory</span> <span class="kw">implements</span> <span class="cl">IVehicleFactory</span> {
+    <span class="kw">private final</span> <span class="cl">IVehicleFactory</span> delegate;
+
+    <span class="kw">public</span> <span class="fn">LoggingVehicleFactory</span>(<span class="cl">IVehicleFactory</span> delegate) {
+        <span class="kw">this</span>.delegate = delegate;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">Vehicle</span> <span class="fn">create</span>(<span class="cl">String</span> type) {
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"[%d] Requesting: %s%n"</span>, <span class="cl">System</span>.currentTimeMillis(), type);
+        <span class="cl">Vehicle</span> v = delegate.<span class="fn">create</span>(type);
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"[%d] Created: %s%n"</span>, <span class="cl">System</span>.currentTimeMillis(), v.<span class="fn">getClass</span>().<span class="fn">getSimpleName</span>());
+        <span class="kw">return</span> v;
+    }
+}
+
+<span class="cm">// Only wiring point changes — call sites stay identical:
+// IVehicleFactory factory = new LoggingVehicleFactory(new VehicleFactory());
+// factory.create("car"); // logs transparently ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Pro</span><span class="tag tag-orange">Solution 5 — HybridFleet</span></div><h3>New family. One new class. Zero client changes.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">HybridFleet.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">HybridFleet</span> <span class="kw">implements</span> <span class="cl">FleetFactory</span> {
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Vehicle</span> <span class="fn">createCityVehicle</span>()     { <span class="kw">return new</span> <span class="cl">HybridCar</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Vehicle</span> <span class="fn">createHighwayVehicle</span>()  { <span class="kw">return new</span> <span class="cl">HybridTruck</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Vehicle</span> <span class="fn">createDeliveryVehicle</span>() { <span class="kw">return new</span> <span class="cl">HybridVan</span>(); }
+}
+
+<span class="cm">// Client — ONE LINE change:
+// FleetFactory factory = new HybridFleet(); // was: new ElectricFleet()
+// All three vehicle calls now return hybrid variants automatically. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">Elite</span><span class="tag tag-red">Solution 6 — Config File + Reflection Factory</span></div><h3>Zero Java changes needed to add new vehicle types.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">ReflectiveVehicleFactory.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.io.*;
+<span class="kw">import</span> java.util.*;
+
+<span class="kw">public class</span> <span class="cl">ReflectiveVehicleFactory</span> {
+    <span class="kw">private final</span> <span class="cl">Properties</span> props = <span class="kw">new</span> <span class="cl">Properties</span>();
+
+    <span class="kw">public</span> <span class="fn">ReflectiveVehicleFactory</span>(<span class="cl">String</span> file) <span class="kw">throws</span> <span class="cl">IOException</span> {
+        <span class="kw">try</span> (<span class="cl">InputStream</span> in = <span class="fn">getClass</span>().<span class="fn">getClassLoader</span>().<span class="fn">getResourceAsStream</span>(file)) {
+            props.<span class="fn">load</span>(in);
+        }
+    }
+
+    <span class="kw">public</span> <span class="cl">Vehicle</span> <span class="fn">create</span>(<span class="cl">String</span> type) {
+        <span class="cl">String</span> className = props.<span class="fn">getProperty</span>(type.<span class="fn">toLowerCase</span>());
+        <span class="kw">if</span> (className == <span class="kw">null</span>) <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"No mapping for: "</span> + type);
+        <span class="kw">try</span> {
+            <span class="kw">return</span> (<span class="cl">Vehicle</span>) <span class="cl">Class</span>.<span class="fn">forName</span>(className).<span class="fn">getDeclaredConstructor</span>().<span class="fn">newInstance</span>();
+        } <span class="kw">catch</span> (<span class="cl">Exception</span> e) {
+            <span class="kw">throw new</span> <span class="cl">RuntimeException</span>(<span class="st">"Failed to create: "</span> + className, e);
+        }
+    }
+}
+<span class="cm">// vehicles.properties:
+// car=com.rental.Car
+// truck=com.rental.Truck
+// hovercraft=com.rental.Hovercraft   ← just add this line, no Java changes
+//
+// Risk: ClassCastException at runtime if class doesn't implement Vehicle.
+// This is how Spring's BeanFactory resolves beans from XML config. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">Elite</span><span class="tag tag-red">Solution 7 — Factory Method + Template Method</span></div><h3>Template defines the invariant steps; subclasses override hooks.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">RentalAgency.java — full Template Method</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public abstract class</span> <span class="cl">RentalAgency</span> {
+
+    <span class="cm">// Final template — the invariant algorithm</span>
+    <span class="kw">public final</span> <span class="cl">String</span> <span class="fn">bookVehicle</span>(<span class="cl">String</span> customer) {
+        <span class="fn">validateCustomer</span>(customer);      <span class="cm">// hook</span>
+        <span class="cl">Vehicle</span> v = <span class="fn">createVehicle</span>();      <span class="cm">// factory method</span>
+        <span class="fn">prepareVehicle</span>(v);               <span class="cm">// hook</span>
+        <span class="kw">return</span> <span class="fn">issueReceipt</span>(customer, v); <span class="cm">// final step</span>
+    }
+
+    <span class="kw">protected abstract</span> <span class="cl">Vehicle</span> <span class="fn">createVehicle</span>(); <span class="cm">// must implement</span>
+
+    <span class="kw">protected void</span> <span class="fn">validateCustomer</span>(<span class="cl">String</span> c) {
+        <span class="kw">if</span> (c == <span class="kw">null</span> || c.<span class="fn">isBlank</span>())
+            <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Name required"</span>);
+    }
+    <span class="kw">protected void</span> <span class="fn">prepareVehicle</span>(<span class="cl">Vehicle</span> v) { <span class="cm">/* default: no-op */</span> }
+
+    <span class="kw">private</span> <span class="cl">String</span> <span class="fn">issueReceipt</span>(<span class="cl">String</span> c, <span class="cl">Vehicle</span> v) {
+        <span class="kw">return</span> <span class="st">"Receipt: "</span> + c + <span class="st">" booked "</span> + v.<span class="fn">getType</span>();
+    }
+}
+
+<span class="cm">// FreightAgency overrides two hooks:</span>
+<span class="kw">public class</span> <span class="cl">FreightAgency</span> <span class="kw">extends</span> <span class="cl">RentalAgency</span> {
+    <span class="an">@Override</span> <span class="kw">protected</span> <span class="cl">Vehicle</span> <span class="fn">createVehicle</span>() { <span class="kw">return new</span> <span class="cl">Truck</span>(); }
+
+    <span class="an">@Override</span>
+    <span class="kw">protected void</span> <span class="fn">validateCustomer</span>(<span class="cl">String</span> c) {
+        <span class="kw">super</span>.<span class="fn">validateCustomer</span>(c);
+        <span class="kw">if</span> (!c.<span class="fn">startsWith</span>(<span class="st">"COMM-"</span>))
+            <span class="kw">throw new</span> <span class="cl">SecurityException</span>(<span class="st">"Commercial licence required"</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">protected void</span> <span class="fn">prepareVehicle</span>(<span class="cl">Vehicle</span> v) {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[Freight] Safety inspection: "</span> + v.<span class="fn">getType</span>());
+    }
+}</code></pre>
+    </div>
+
+    <hr class="div">
+
+    <div class="challenge boss"><div class="challenge-meta"><span class="diff diff-boss">Boss</span><span class="tag tag-purple">Solution 8 — UI Component Abstract Factory</span></div><h3>The canonical GoF example. Same structure, new domain.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">UIFactory.java + all components + concrete factories</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Product interfaces</span>
+<span class="kw">public interface</span> <span class="cl">Button</span>    { <span class="cl">String</span> <span class="fn">render</span>(); }
+<span class="kw">public interface</span> <span class="cl">TextField</span> { <span class="cl">String</span> <span class="fn">render</span>(); }
+<span class="kw">public interface</span> <span class="cl">Dropdown</span>  { <span class="cl">String</span> <span class="fn">render</span>(); }
+
+<span class="cm">// Abstract Factory</span>
+<span class="kw">public interface</span> <span class="cl">UIFactory</span> {
+    <span class="cl">Button</span>    <span class="fn">createButton</span>();
+    <span class="cl">TextField</span> <span class="fn">createTextField</span>();
+    <span class="cl">Dropdown</span>  <span class="fn">createDropdown</span>();
+}
+
+<span class="cm">// Windows products</span>
+<span class="kw">class</span> <span class="cl">WinButton</span>    <span class="kw">implements</span> <span class="cl">Button</span>    { <span class="kw">public</span> <span class="cl">String</span> <span class="fn">render</span>() { <span class="kw">return</span> <span class="st">"[Win Button]"</span>; } }
+<span class="kw">class</span> <span class="cl">WinTextField</span> <span class="kw">implements</span> <span class="cl">TextField</span> { <span class="kw">public</span> <span class="cl">String</span> <span class="fn">render</span>() { <span class="kw">return</span> <span class="st">"[Win Input ]"</span>; } }
+<span class="kw">class</span> <span class="cl">WinDropdown</span>  <span class="kw">implements</span> <span class="cl">Dropdown</span>  { <span class="kw">public</span> <span class="cl">String</span> <span class="fn">render</span>() { <span class="kw">return</span> <span class="st">"[Win Combo ]"</span>; } }
+
+<span class="cm">// Mac products</span>
+<span class="kw">class</span> <span class="cl">MacButton</span>    <span class="kw">implements</span> <span class="cl">Button</span>    { <span class="kw">public</span> <span class="cl">String</span> <span class="fn">render</span>() { <span class="kw">return</span> <span class="st">"(Mac Button)"</span>; } }
+<span class="kw">class</span> <span class="cl">MacTextField</span> <span class="kw">implements</span> <span class="cl">TextField</span> { <span class="kw">public</span> <span class="cl">String</span> <span class="fn">render</span>() { <span class="kw">return</span> <span class="st">"(Mac Input )"</span>; } }
+<span class="kw">class</span> <span class="cl">MacDropdown</span>  <span class="kw">implements</span> <span class="cl">Dropdown</span>  { <span class="kw">public</span> <span class="cl">String</span> <span class="fn">render</span>() { <span class="kw">return</span> <span class="st">"(Mac Select)"</span>; } }
+
+<span class="cm">// Concrete factories</span>
+<span class="kw">public class</span> <span class="cl">WindowsUIFactory</span> <span class="kw">implements</span> <span class="cl">UIFactory</span> {
+    <span class="kw">public</span> <span class="cl">Button</span>    <span class="fn">createButton</span>()    { <span class="kw">return new</span> <span class="cl">WinButton</span>(); }
+    <span class="kw">public</span> <span class="cl">TextField</span> <span class="fn">createTextField</span>() { <span class="kw">return new</span> <span class="cl">WinTextField</span>(); }
+    <span class="kw">public</span> <span class="cl">Dropdown</span>  <span class="fn">createDropdown</span>()  { <span class="kw">return new</span> <span class="cl">WinDropdown</span>(); }
+}
+
+<span class="kw">public class</span> <span class="cl">MacUIFactory</span> <span class="kw">implements</span> <span class="cl">UIFactory</span> {
+    <span class="kw">public</span> <span class="cl">Button</span>    <span class="fn">createButton</span>()    { <span class="kw">return new</span> <span class="cl">MacButton</span>(); }
+    <span class="kw">public</span> <span class="cl">TextField</span> <span class="fn">createTextField</span>() { <span class="kw">return new</span> <span class="cl">MacTextField</span>(); }
+    <span class="kw">public</span> <span class="cl">Dropdown</span>  <span class="fn">createDropdown</span>()  { <span class="kw">return new</span> <span class="cl">MacDropdown</span>(); }
+}
+
+<span class="cm">// Application — never touches concrete classes:</span>
+<span class="kw">public class</span> <span class="cl">Application</span> {
+    <span class="kw">private final</span> <span class="cl">UIFactory</span> ui;
+    <span class="kw">public</span> <span class="fn">Application</span>(<span class="cl">UIFactory</span> ui) { <span class="kw">this</span>.ui = ui; }
+    <span class="kw">public void</span> <span class="fn">renderForm</span>() {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(ui.<span class="fn">createButton</span>().<span class="fn">render</span>());
+        <span class="cl">System</span>.out.<span class="fn">println</span>(ui.<span class="fn">createTextField</span>().<span class="fn">render</span>());
+        <span class="cl">System</span>.out.<span class="fn">println</span>(ui.<span class="fn">createDropdown</span>().<span class="fn">render</span>());
+    }
+}
+
+<span class="cm">// new Application(new WindowsUIFactory()).renderForm();
+// → [Win Button] [Win Input ] [Win Combo ]
+//
+// new Application(new MacUIFactory()).renderForm();
+// → (Mac Button) (Mac Input ) (Mac Select)
+//
+// This is exactly how Java Swing's UIManager.setLookAndFeel() works. ✓</span></code></pre>
+    </div>
+
+    <div class="callout callout-purple">
+      <div class="callout-title">Real-World Connections</div>
+      <p>
+        <strong style="color:var(--accent5)">Java Swing:</strong> <code>UIManager.setLookAndFeel()</code> swaps the entire Abstract Factory that creates platform-native components.<br><br>
+        <strong style="color:var(--accent5)">Spring Framework:</strong> <code>ApplicationContext</code> is an Abstract Factory — it creates beans according to XML/annotation configuration (the concrete factory).<br><br>
+        <strong style="color:var(--accent5)">JDBC:</strong> <code>DriverManager.getConnection()</code> is a Factory Method. <code>Connection.createStatement()</code> is also a Factory Method — <code>Connection</code> is an abstract creator producing <code>Statement</code> objects.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    event.target.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
