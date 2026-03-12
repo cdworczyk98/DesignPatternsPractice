@@ -1,0 +1,1658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Command Pattern — Text Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0e0e12;
+    --surface:  #13131a;
+    --surface2: #181820;
+    --surface3: #1e1e28;
+    --border:   #22223a;
+    --border2:  #2e2e48;
+    --teal:     #2dd4bf;
+    --blue:     #60a5fa;
+    --violet:   #a78bfa;
+    --rose:     #fb7185;
+    --amber:    #fbbf24;
+    --green:    #4ade80;
+    --text:     #e2e8f0;
+    --text-dim: #3a3a5a;
+    --text-mid: #7a7a9a;
+    --code-bg:  #09090e;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background:
+      radial-gradient(ellipse 50% 40% at 20% 10%, rgba(45,212,191,0.04) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 35% at 80% 90%, rgba(167,139,250,0.04) 0%, transparent 55%);
+    pointer-events:none; z-index:0;
+  }
+
+  .container { max-width:1000px; margin:0 auto; padding:0 28px 120px; position:relative; z-index:1; }
+
+  /* ── Header ── */
+  header { padding:60px 0 46px; border-bottom:1px solid var(--border); margin-bottom:42px; }
+
+  .eyebrow {
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px; letter-spacing:0.32em; text-transform:uppercase;
+    color:var(--teal); margin-bottom:16px;
+  }
+
+  h1 {
+    font-family:'Space Grotesk', sans-serif;
+    font-size:clamp(36px, 6vw, 70px);
+    font-weight:700; line-height:1.0; letter-spacing:-0.03em;
+    color:var(--text);
+  }
+  h1 .hl  { color:var(--teal); }
+  h1 .dim { color:var(--text-dim); font-weight:400; }
+
+  .header-meta { margin-top:20px; display:flex; gap:10px; flex-wrap:wrap; }
+  .meta-pill {
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+    padding:4px 12px; border-radius:20px;
+    border:1px solid var(--border2); color:var(--text-mid);
+  }
+  .meta-pill.hl { border-color:var(--teal); color:var(--teal); }
+
+  /* ── Tabs ── */
+  .tabs {
+    display:flex; gap:2px; margin-bottom:40px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; padding:4px; overflow-x:auto; scrollbar-width:none;
+  }
+  .tab-btn {
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px; letter-spacing:0.05em;
+    padding:9px 16px; border:none; background:none;
+    color:var(--text-dim); cursor:pointer; white-space:nowrap;
+    border-radius:6px; transition:all 0.18s; flex-shrink:0;
+  }
+  .tab-btn.active { background:var(--surface3); color:var(--teal); border:1px solid var(--border2); }
+  .tab-btn:hover:not(.active) { color:var(--text-mid); background:var(--surface2); }
+
+  /* ── Panels ── */
+  .panel { display:none; }
+  .panel.active { display:block; animation:fadeUp 0.25s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+
+  /* ── Typography ── */
+  .section-label {
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px; letter-spacing:0.3em; text-transform:uppercase;
+    color:var(--text-dim); margin-bottom:10px;
+  }
+
+  h2 {
+    font-family:'Space Grotesk', sans-serif;
+    font-size:28px; font-weight:700; letter-spacing:-0.02em;
+    color:var(--text); margin-bottom:12px;
+  }
+
+  h3 {
+    font-family:'Space Grotesk', sans-serif;
+    font-size:15px; font-weight:600; letter-spacing:-0.01em;
+    color:var(--text); margin-bottom:8px;
+  }
+
+  p {
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px; line-height:1.85;
+    color:var(--text-mid); margin-bottom:14px;
+  }
+
+  strong { color:var(--text); font-weight:600; }
+  code { font-family:'JetBrains Mono', monospace; color:var(--teal); font-size:11px; }
+
+  /* ── Grids ── */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:16px; }
+  @media(max-width:680px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
+
+  /* ── Cards ── */
+  .card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; padding:18px 20px; margin-bottom:14px;
+  }
+
+  /* ── Simulated editor ── */
+  .editor-mock {
+    background:var(--code-bg); border:1px solid var(--border);
+    border-radius:8px; overflow:hidden; margin-bottom:16px;
+    font-family:'JetBrains Mono', monospace;
+  }
+  .editor-toolbar {
+    background:var(--surface2); border-bottom:1px solid var(--border);
+    padding:8px 14px; display:flex; gap:6px; align-items:center;
+  }
+  .tb-btn {
+    background:var(--surface3); border:1px solid var(--border2);
+    border-radius:4px; padding:3px 10px;
+    font-family:'JetBrains Mono', monospace; font-size:10px;
+    color:var(--text-mid); cursor:default;
+  }
+  .tb-btn.active { color:var(--teal); border-color:var(--teal); background:rgba(45,212,191,0.08); }
+  .tb-sep { width:1px; height:16px; background:var(--border2); margin:0 4px; }
+  .editor-body { padding:16px 20px; font-size:13px; line-height:1.9; color:var(--text); }
+  .editor-body .cursor { display:inline-block; width:2px; height:1em; background:var(--teal); vertical-align:text-bottom; animation:blink 1s step-end infinite; }
+  @keyframes blink { 50%{opacity:0;} }
+  .editor-body b  { color:var(--text); }
+  .editor-body em { font-style:italic; color:var(--text-mid); }
+  .editor-body .sel { background:rgba(45,212,191,0.15); border-radius:2px; }
+  .editor-footer {
+    background:var(--surface2); border-top:1px solid var(--border);
+    padding:5px 14px; font-size:10px; color:var(--text-dim);
+    display:flex; gap:20px;
+  }
+
+  /* ── Tags ── */
+  .tag {
+    display:inline-block;
+    font-family:'JetBrains Mono', monospace;
+    font-size:9px; letter-spacing:0.12em; text-transform:uppercase;
+    padding:2px 8px; border-radius:4px; margin-right:6px; margin-bottom:8px;
+  }
+  .tag-teal   { background:rgba(45,212,191,0.1);  color:var(--teal);   border:1px solid rgba(45,212,191,0.2); }
+  .tag-blue   { background:rgba(96,165,250,0.1);  color:var(--blue);   border:1px solid rgba(96,165,250,0.2); }
+  .tag-violet { background:rgba(167,139,250,0.1); color:var(--violet); border:1px solid rgba(167,139,250,0.2); }
+  .tag-rose   { background:rgba(251,113,133,0.1); color:var(--rose);   border:1px solid rgba(251,113,133,0.2); }
+  .tag-amber  { background:rgba(251,191,36,0.1);  color:var(--amber);  border:1px solid rgba(251,191,36,0.2); }
+  .tag-green  { background:rgba(74,222,128,0.1);  color:var(--green);  border:1px solid rgba(74,222,128,0.2); }
+
+  /* ── Code blocks ── */
+  .code-block {
+    background:var(--code-bg); border:1px solid var(--border);
+    border-radius:8px; overflow:hidden; margin:12px 0;
+    font-family:'JetBrains Mono', monospace; font-size:12px; line-height:1.72;
+  }
+  .code-header {
+    background:#0b0b10; border-bottom:1px solid var(--border);
+    padding:8px 16px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .code-filename { font-size:11px; color:var(--teal); }
+  .code-lang     { font-size:9px; letter-spacing:0.18em; text-transform:uppercase; color:var(--text-dim); }
+  pre { padding:18px 20px; overflow-x:auto; scrollbar-width:thin; }
+
+  .kw{color:#c084fc;} .cl{color:#7dd3fc;} .fn{color:#86efac;}
+  .st{color:#fde68a;} .cm{color:#1e2030;} .nu{color:#fb923c;}
+  .an{color:#f9a8d4;} .in{font-style:italic;color:#c084fc;}
+
+  /* ── Callouts ── */
+  .callout { border-left:2px solid; padding:12px 16px; border-radius:0 8px 8px 0; margin:12px 0; }
+  .callout-teal   { border-color:var(--teal);   background:rgba(45,212,191,0.04); }
+  .callout-blue   { border-color:var(--blue);   background:rgba(96,165,250,0.04); }
+  .callout-violet { border-color:var(--violet); background:rgba(167,139,250,0.04); }
+  .callout-rose   { border-color:var(--rose);   background:rgba(251,113,133,0.04); }
+  .callout-amber  { border-color:var(--amber);  background:rgba(251,191,36,0.04); }
+  .callout-green  { border-color:var(--green);  background:rgba(74,222,128,0.04); }
+  .callout-title {
+    font-family:'JetBrains Mono', monospace;
+    font-size:9px; letter-spacing:0.25em; text-transform:uppercase; margin-bottom:6px;
+  }
+  .callout-teal   .callout-title { color:var(--teal); }
+  .callout-blue   .callout-title { color:var(--blue); }
+  .callout-violet .callout-title { color:var(--violet); }
+  .callout-rose   .callout-title { color:var(--rose); }
+  .callout-amber  .callout-title { color:var(--amber); }
+  .callout-green  .callout-title { color:var(--green); }
+  .callout p { margin:0; }
+
+  hr.div { border:none; border-top:1px solid var(--border); margin:28px 0; }
+
+  /* ── Diagrams ── */
+  .diagram-wrap {
+    background:var(--code-bg); border:1px solid var(--border);
+    border-radius:8px; padding:28px; margin:14px 0; overflow-x:auto;
+  }
+  .diagram-wrap svg { display:block; margin:0 auto; }
+
+  /* ── Comparison table ── */
+  .compare-table {
+    width:100%; border-collapse:collapse; font-family:'JetBrains Mono', monospace;
+    font-size:11px; margin:14px 0;
+  }
+  .compare-table th {
+    background:var(--surface2); border:1px solid var(--border);
+    padding:10px 14px; text-align:left; color:var(--text-mid);
+    font-size:9px; letter-spacing:0.18em; text-transform:uppercase;
+  }
+  .compare-table td {
+    border:1px solid var(--border); padding:10px 14px;
+    background:var(--surface); color:var(--text-mid); vertical-align:top; line-height:1.7;
+  }
+  .compare-table tr:hover td { background:var(--surface2); }
+  .compare-table td.hl { color:var(--text); font-weight:500; }
+  .compare-table td.good { color:var(--green); }
+  .compare-table td.bad  { color:var(--rose); }
+
+  /* ── Tiers ── */
+  .tier { border:1px solid var(--border); border-radius:10px; margin-bottom:32px; overflow:hidden; }
+  .tier-header { padding:18px 24px; display:flex; align-items:center; gap:16px; border-bottom:1px solid var(--border); }
+  .tier-icon  { font-size:26px; }
+  .tier-title { font-family:'Space Grotesk', sans-serif; font-size:20px; font-weight:700; }
+  .tier-sub   { font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--text-dim); margin-top:2px; }
+  .tier-body  { padding:22px 24px; background:var(--surface); }
+
+  .tier-easy   .tier-header { background:rgba(74,222,128,0.05); }
+  .tier-easy   .tier-title  { color:var(--green); }
+  .tier-medium .tier-header { background:rgba(96,165,250,0.05); }
+  .tier-medium .tier-title  { color:var(--blue); }
+  .tier-hard   .tier-header { background:rgba(251,113,133,0.05); }
+  .tier-hard   .tier-title  { color:var(--rose); }
+
+  /* ── Challenges ── */
+  .challenge {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; padding:16px 20px; margin-bottom:12px;
+    position:relative; overflow:hidden;
+  }
+  .challenge::before {
+    content:''; position:absolute; top:0; left:0; bottom:0; width:3px; border-radius:3px 0 0 3px;
+  }
+  .challenge.easy::before   { background:var(--green); }
+  .challenge.medium::before { background:var(--blue); }
+  .challenge.hard::before   { background:var(--rose); }
+  .challenge.boss::before   { background:var(--violet); }
+  .challenge-meta { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .diff {
+    font-family:'JetBrains Mono', monospace;
+    font-size:9px; letter-spacing:0.15em; text-transform:uppercase; padding:2px 8px; border-radius:4px;
+  }
+  .diff-easy   { background:rgba(74,222,128,0.12);  color:var(--green); }
+  .diff-medium { background:rgba(96,165,250,0.12);  color:var(--blue); }
+  .diff-hard   { background:rgba(251,113,133,0.12); color:var(--rose); }
+  .diff-boss   { background:rgba(167,139,250,0.12); color:var(--violet); }
+
+  /* Steps */
+  ol.steps { list-style:none; counter-reset:s; }
+  ol.steps li {
+    counter-increment:s; display:flex; gap:14px;
+    padding:13px 0; border-bottom:1px solid var(--border);
+    font-family:'JetBrains Mono', monospace; font-size:12px;
+    color:var(--text-mid); line-height:1.8;
+  }
+  ol.steps li:last-child { border-bottom:none; }
+  ol.steps li::before {
+    content:counter(s,decimal-leading-zero);
+    font-size:10px; color:var(--teal); min-width:24px; padding-top:2px; flex-shrink:0;
+  }
+  ol.steps li strong { color:var(--text); display:block; margin-bottom:4px; }
+
+  /* ── Undo log ── */
+  .undo-log {
+    background:var(--code-bg); border:1px solid var(--border); border-radius:8px;
+    padding:14px 18px; font-family:'JetBrains Mono', monospace;
+    font-size:11px; line-height:2.0; margin-bottom:14px;
+  }
+  .ul-line { display:flex; gap:12px; align-items:baseline; }
+  .ul-ts    { color:var(--text-dim); flex-shrink:0; }
+  .ul-exec  { color:var(--green); }
+  .ul-undo  { color:var(--rose); }
+  .ul-redo  { color:var(--blue); }
+  .ul-batch { color:var(--violet); }
+  .ul-sys   { color:var(--amber); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="eyebrow">// design_patterns · java_workshop · v8</div>
+    <h1><span class="hl">Command</span> Pattern<br><span class="dim">Text Editor</span></h1>
+    <div class="header-meta">
+      <span class="meta-pill hl">Intermediate baseline</span>
+      <span class="meta-pill">Undo · Redo · Batch</span>
+      <span class="meta-pill">GoF Behavioural</span>
+      <span class="meta-pill">10 challenges</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('baseline')">① Baseline</button>
+    <button class="tab-btn" onclick="switchTab('problem')">② The Problem</button>
+    <button class="tab-btn" onclick="switchTab('deep')">③ Deep Dive</button>
+    <button class="tab-btn" onclick="switchTab('refactor')">④ Refactored</button>
+    <button class="tab-btn" onclick="switchTab('challenges')">⑤ Challenges</button>
+    <button class="tab-btn" onclick="switchTab('solutions')">⑥ Solutions</button>
+  </nav>
+
+  <!-- ══════════════════════════════════ PANEL 1 ══ -->
+  <div id="panel-baseline" class="panel active">
+    <div class="section-label">// step_01</div>
+    <h2>The Baseline App</h2>
+    <p>A text editor with a real <code>TextBuffer</code> (backed by <code>StringBuilder</code>), a <code>FormattingEngine</code> for bold and italic, and a <code>SelectionModel</code> tracking cursor and selection range. Users can insert text, delete ranges, and toggle formatting. The editor already has intermediate structure — but editing operations are direct method calls with no history.</p>
+
+    <div class="editor-mock">
+      <div class="editor-toolbar">
+        <span class="tb-btn active">B</span>
+        <span class="tb-btn"><em>I</em></span>
+        <span class="tb-btn">U</span>
+        <span class="tb-sep"></span>
+        <span class="tb-btn">Undo</span>
+        <span class="tb-btn">Redo</span>
+        <span class="tb-sep"></span>
+        <span class="tb-btn">Find</span>
+        <span class="tb-btn">Replace</span>
+      </div>
+      <div class="editor-body">
+        The quick brown fox jumps over the <b>lazy</b> dog.<br>
+        <span class="sel">Pack my box with five dozen</span> liquor jugs.<br>
+        How vexingly quick <em>daft zebras jump</em>!<span class="cursor"></span>
+      </div>
+      <div class="editor-footer">
+        <span>Ln 3, Col 28</span>
+        <span>UTF-8</span>
+        <span>chars: 112</span>
+        <span>words: 22</span>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">TextBuffer.java</span><span class="code-lang">Java — Baseline</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">TextBuffer</span> {
+
+    <span class="kw">private final</span> <span class="cl">StringBuilder</span> content = <span class="kw">new</span> <span class="cl">StringBuilder</span>();
+
+    <span class="kw">public void</span> <span class="fn">insert</span>(<span class="kw">int</span> position, <span class="cl">String</span> text) {
+        content.<span class="fn">insert</span>(position, text);
+    }
+
+    <span class="kw">public void</span> <span class="fn">delete</span>(<span class="kw">int</span> start, <span class="kw">int</span> end) {
+        content.<span class="fn">delete</span>(start, end);
+    }
+
+    <span class="kw">public void</span> <span class="fn">replace</span>(<span class="kw">int</span> start, <span class="kw">int</span> end, <span class="cl">String</span> replacement) {
+        content.<span class="fn">replace</span>(start, end, replacement);
+    }
+
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getText</span>()                     { <span class="kw">return</span> content.<span class="fn">toString</span>(); }
+    <span class="kw">public int</span>    <span class="fn">length</span>()                        { <span class="kw">return</span> content.<span class="fn">length</span>(); }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">substring</span>(<span class="kw">int</span> start, <span class="kw">int</span> end)  { <span class="kw">return</span> content.<span class="fn">substring</span>(start, end); }
+    <span class="kw">public void</span>   <span class="fn">clear</span>()                         { content.<span class="fn">setLength</span>(<span class="nu">0</span>); }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">FormattingEngine.java + SelectionModel.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">FormattingEngine</span> {
+    <span class="cm">// Stores format spans as a simple list of markers</span>
+    <span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">FormatSpan</span>&gt; spans = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+
+    <span class="kw">public void</span> <span class="fn">applyBold</span>(<span class="kw">int</span> start, <span class="kw">int</span> end) {
+        spans.<span class="fn">add</span>(<span class="kw">new</span> <span class="cl">FormatSpan</span>(<span class="cl">FormatType</span>.BOLD, start, end));
+    }
+
+    <span class="kw">public void</span> <span class="fn">applyItalic</span>(<span class="kw">int</span> start, <span class="kw">int</span> end) {
+        spans.<span class="fn">add</span>(<span class="kw">new</span> <span class="cl">FormatSpan</span>(<span class="cl">FormatType</span>.ITALIC, start, end));
+    }
+
+    <span class="kw">public void</span> <span class="fn">removeSpan</span>(<span class="cl">FormatSpan</span> span) { spans.<span class="fn">remove</span>(span); }
+    <span class="kw">public</span> <span class="cl">List</span>&lt;<span class="cl">FormatSpan</span>&gt; <span class="fn">getSpans</span>() { <span class="kw">return</span> <span class="cl">Collections</span>.<span class="fn">unmodifiableList</span>(spans); }
+}
+
+<span class="kw">public class</span> <span class="cl">SelectionModel</span> {
+    <span class="kw">private int</span> cursorPos     = <span class="nu">0</span>;
+    <span class="kw">private int</span> selectionStart = <span class="nu">-1</span>;
+    <span class="kw">private int</span> selectionEnd   = <span class="nu">-1</span>;
+
+    <span class="kw">public void</span> <span class="fn">moveCursor</span>(<span class="kw">int</span> pos)                   { cursorPos = pos; }
+    <span class="kw">public void</span> <span class="fn">setSelection</span>(<span class="kw">int</span> start, <span class="kw">int</span> end)      { selectionStart = start; selectionEnd = end; }
+    <span class="kw">public void</span> <span class="fn">clearSelection</span>()                       { selectionStart = selectionEnd = <span class="nu">-1</span>; }
+    <span class="kw">public boolean</span> <span class="fn">hasSelection</span>()                      { <span class="kw">return</span> selectionStart >= <span class="nu">0</span>; }
+    <span class="kw">public int</span> <span class="fn">getCursor</span>()                              { <span class="kw">return</span> cursorPos; }
+    <span class="kw">public int</span> <span class="fn">getSelectionStart</span>()                     { <span class="kw">return</span> selectionStart; }
+    <span class="kw">public int</span> <span class="fn">getSelectionEnd</span>()                       { <span class="kw">return</span> selectionEnd; }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Editor.java — direct calls, no command pattern yet</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Editor</span> {
+
+    <span class="kw">private final</span> <span class="cl">TextBuffer</span>       buffer    = <span class="kw">new</span> <span class="cl">TextBuffer</span>();
+    <span class="kw">private final</span> <span class="cl">FormattingEngine</span> formatter = <span class="kw">new</span> <span class="cl">FormattingEngine</span>();
+    <span class="kw">private final</span> <span class="cl">SelectionModel</span>   selection = <span class="kw">new</span> <span class="cl">SelectionModel</span>();
+
+    <span class="kw">public void</span> <span class="fn">type</span>(<span class="cl">String</span> text) {
+        buffer.<span class="fn">insert</span>(selection.<span class="fn">getCursor</span>(), text);
+        selection.<span class="fn">moveCursor</span>(selection.<span class="fn">getCursor</span>() + text.<span class="fn">length</span>());
+    }
+
+    <span class="kw">public void</span> <span class="fn">deleteSelection</span>() {
+        <span class="kw">if</span> (!selection.<span class="fn">hasSelection</span>()) <span class="kw">return</span>;
+        buffer.<span class="fn">delete</span>(selection.<span class="fn">getSelectionStart</span>(), selection.<span class="fn">getSelectionEnd</span>());
+        selection.<span class="fn">moveCursor</span>(selection.<span class="fn">getSelectionStart</span>());
+        selection.<span class="fn">clearSelection</span>();
+    }
+
+    <span class="kw">public void</span> <span class="fn">boldSelection</span>() {
+        <span class="kw">if</span> (!selection.<span class="fn">hasSelection</span>()) <span class="kw">return</span>;
+        formatter.<span class="fn">applyBold</span>(selection.<span class="fn">getSelectionStart</span>(), selection.<span class="fn">getSelectionEnd</span>());
+    }
+
+    <span class="kw">public void</span> <span class="fn">replaceAll</span>(<span class="cl">String</span> find, <span class="cl">String</span> replace) {
+        <span class="cl">String</span> current = buffer.<span class="fn">getText</span>();
+        buffer.<span class="fn">clear</span>();
+        buffer.<span class="fn">insert</span>(<span class="nu">0</span>, current.<span class="fn">replace</span>(find, replace));
+    }
+
+    <span class="cm">// ⚠ No undo. No redo. No history.
+    // type() is called — the text is added. That operation is gone.
+    // Ctrl+Z would need to know what was just typed, where, how much.
+    // None of that is stored anywhere.</span>
+
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getContent</span>() { <span class="kw">return</span> buffer.<span class="fn">getText</span>(); }
+}</code></pre>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="callout-title">Works — For Now</div>
+      <p>A real intermediate editor. The buffer, formatter, and selection model are all proper objects. The problem isn't the data model — it's that every operation is a <strong>fire-and-forget method call</strong>. There's nothing to press Ctrl+Z on.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ PANEL 2 ══ -->
+  <div id="panel-problem" class="panel">
+    <div class="section-label">// step_02</div>
+    <h2>New Requirements That Break It</h2>
+    <p>Every real editor needs undo. Beyond that: redo, operation history, collaborative editing (send operations over the wire, not the full document), macros, and autosave checkpoints. None of these are possible when operations are plain method calls.</p>
+
+    <div class="callout callout-rose">
+      <div class="callout-title">New Requirements</div>
+      <p>① <strong>Ctrl+Z / Ctrl+Y</strong> — unlimited undo and redo. ② <strong>Operation log</strong> — show users what has happened ("Typed 'hello'", "Deleted 3 chars"). ③ <strong>Batch operations</strong> — Find &amp; Replace changes 47 occurrences; undo should reverse all 47 at once. ④ <strong>Collaborative editing</strong> — send operations as serialisable objects to another user's editor. ⑤ <strong>Macro recording</strong> — record a sequence, replay with one keystroke.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">❌ Attempting undo with direct calls — impossible without restructuring</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Editor</span> {
+
+    <span class="cm">// Attempt: add undo fields to Editor directly</span>
+    <span class="kw">private</span> <span class="cl">String</span>  lastTypedText;
+    <span class="kw">private int</span>     lastTypedPosition;
+    <span class="kw">private</span> <span class="cl">String</span>  lastDeletedText;
+    <span class="kw">private int</span>     lastDeletedStart;
+    <span class="kw">private int</span>     lastDeletedEnd;
+    <span class="kw">private</span> <span class="cl">String</span>  lastFindText;
+    <span class="kw">private</span> <span class="cl">String</span>  lastReplaceText;
+    <span class="kw">private</span> <span class="cl">String</span>  contentBeforeReplace; <span class="cm">// full snapshot just for one op!</span>
+    <span class="kw">private</span> <span class="cl">FormatSpan</span> lastAppliedSpan;
+    <span class="kw">private</span> <span class="cl">String</span>  lastAction;           <span class="cm">// "type" | "delete" | "replace" | "bold"</span>
+    <span class="cm">// Add a new operation? Add more fields. This never ends.</span>
+
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="kw">switch</span> (lastAction) {
+            <span class="kw">case</span> <span class="st">"type"</span>:
+                buffer.<span class="fn">delete</span>(lastTypedPosition,
+                    lastTypedPosition + lastTypedText.<span class="fn">length</span>());
+                <span class="kw">break</span>;
+            <span class="kw">case</span> <span class="st">"delete"</span>:
+                buffer.<span class="fn">insert</span>(lastDeletedStart, lastDeletedText);
+                <span class="kw">break</span>;
+            <span class="kw">case</span> <span class="st">"replace"</span>:
+                buffer.<span class="fn">clear</span>();
+                buffer.<span class="fn">insert</span>(<span class="nu">0</span>, contentBeforeReplace); <span class="cm">// full copy every time</span>
+                <span class="kw">break</span>;
+            <span class="kw">case</span> <span class="st">"bold"</span>:
+                formatter.<span class="fn">removeSpan</span>(lastAppliedSpan);
+                <span class="kw">break</span>;
+            <span class="cm">// Every new operation needs a new case — and new fields above</span>
+        }
+    }
+    <span class="cm">// undo() only undoes the LAST operation. Multiple undos? Impossible.
+    // Redo? Impossible — we've already overwritten lastAction.
+    // Batch undo for Find&Replace? Would need a list of snapshots.
+    // Editor is doing 5 jobs. SRP is completely gone.</span>
+}</code></pre>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <span class="tag tag-rose">Violation</span>
+        <h3>No History Depth</h3>
+        <p>The "last action" approach only undoes one step. Users expect to undo arbitrarily far back. Every field in <code>Editor</code> only tracks the most recent operation.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-rose">Violation</span>
+        <h3>Editor Knows Too Much</h3>
+        <p><code>Editor</code> is now responsible for text editing, formatting, selection, undo bookkeeping, and operation dispatch. SRP is gone. Every new operation adds more fields to an already bloated class.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-rose">Violation</span>
+        <h3>Batch Undo Is Impossible</h3>
+        <p>Find &amp; Replace modifies the buffer in one call. There's no way to track each individual substitution to undo them. Only a full snapshot works — expensive and non-composable.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-rose">Violation</span>
+        <h3>No Network / Macro Support</h3>
+        <p>Collaborative editing requires sending <em>operations</em> over the network. Method calls can't be serialised or replayed on another machine. Macros need a list of recorded operations — you can't store method calls.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="callout-title">The Core Insight</div>
+      <p>Turn each edit operation from a <em>verb</em> (a method call that fires and disappears) into a <em>noun</em> (an object that can be stored, reversed, replayed, and sent over the wire). <code>buffer.insert(5, "hello")</code> becomes <code>new InsertCommand(buffer, 5, "hello")</code> — an object that carries everything needed to execute <em>and</em> undo the action.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ PANEL 3 ══ -->
+  <div id="panel-deep" class="panel">
+    <div class="section-label">// step_03</div>
+    <h2>Deep Dive</h2>
+    <p>The Command Pattern in a text editor is particularly rich: undo/redo stacks, batch commands, coalescing (merging adjacent keystrokes), and the relationship between commands and the document model are all important real-world concerns.</p>
+
+    <!-- Diagram 1: Structure -->
+    <h3>Diagram 1 — Command Pattern Structure</h3>
+    <p>Four participants. The <strong>Invoker</strong> (<code>EditorEngine</code>) manages the history stack. The <strong>Command interface</strong> abstracts all operations. <strong>Concrete Commands</strong> store the data needed to execute and reverse. The <strong>Receiver</strong> (<code>TextBuffer</code>, <code>FormattingEngine</code>) does the actual work.</p>
+    <div class="diagram-wrap">
+      <svg width="640" height="250" viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="11">
+        <defs>
+          <marker id="d1-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#2dd4bf"/>
+          </marker>
+          <marker id="d1-open" markerWidth="12" markerHeight="10" refX="0" refY="5" orient="auto">
+            <polygon points="0,0 12,5 0,10" fill="none" stroke="#60a5fa" stroke-width="1.5"/>
+          </marker>
+          <marker id="d1-dash" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#a78bfa"/>
+          </marker>
+        </defs>
+
+        <!-- Invoker -->
+        <rect x="10" y="90" width="145" height="80" rx="5" fill="#13131a" stroke="#2dd4bf" stroke-width="1.5"/>
+        <text x="82"  y="110" text-anchor="middle" fill="#2dd4bf" font-size="9" letter-spacing="0.1em">INVOKER</text>
+        <text x="82"  y="128" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">EditorEngine</text>
+        <line x1="10" y1="116" x2="155" y2="116" stroke="#22223a"/>
+        <text x="82"  y="143" text-anchor="middle" fill="#3a3a5a" font-size="10">execute(cmd)</text>
+        <text x="82"  y="158" text-anchor="middle" fill="#3a3a5a" font-size="10">undo() / redo()</text>
+
+        <!-- Command interface -->
+        <rect x="228" y="60" width="186" height="80" rx="5" fill="#13131a" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="321" y="80"  text-anchor="middle" fill="#60a5fa" font-size="9" letter-spacing="0.1em">«interface»</text>
+        <text x="321" y="98"  text-anchor="middle" fill="#e2e8f0" font-size="13" font-weight="600">EditorCommand</text>
+        <line x1="228" y1="106" x2="414" y2="106" stroke="#22223a"/>
+        <text x="321" y="120" text-anchor="middle" fill="#3a3a5a" font-size="10">execute()</text>
+        <text x="321" y="134" text-anchor="middle" fill="#3a3a5a" font-size="10">undo()</text>
+
+        <!-- Concrete Commands -->
+        <rect x="186" y="180" width="120" height="50" rx="5" fill="#13131a" stroke="#22223a"/>
+        <text x="246" y="201" text-anchor="middle" fill="#2dd4bf" font-size="11" font-weight="600">InsertCommand</text>
+        <text x="246" y="218" text-anchor="middle" fill="#3a3a5a" font-size="10">pos, text, buffer</text>
+
+        <rect x="320" y="180" width="120" height="50" rx="5" fill="#13131a" stroke="#22223a"/>
+        <text x="380" y="201" text-anchor="middle" fill="#2dd4bf" font-size="11" font-weight="600">DeleteCommand</text>
+        <text x="380" y="218" text-anchor="middle" fill="#3a3a5a" font-size="10">start, end, deleted</text>
+
+        <!-- Implements arrows -->
+        <line x1="246" y1="180" x2="285" y2="140" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#d1-open)"/>
+        <line x1="380" y1="180" x2="355" y2="140" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#d1-open)"/>
+
+        <!-- Receiver -->
+        <rect x="490" y="90" width="144" height="80" rx="5" fill="#13131a" stroke="#22223a"/>
+        <text x="562" y="110" text-anchor="middle" fill="#7a7a9a" font-size="9" letter-spacing="0.1em">RECEIVER</text>
+        <text x="562" y="128" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">TextBuffer</text>
+        <line x1="490" y1="116" x2="634" y2="116" stroke="#22223a"/>
+        <text x="562" y="143" text-anchor="middle" fill="#3a3a5a" font-size="10">insert(pos, text)</text>
+        <text x="562" y="158" text-anchor="middle" fill="#3a3a5a" font-size="10">delete(start, end)</text>
+
+        <!-- Invoker → Command -->
+        <line x1="155" y1="130" x2="226" y2="110" stroke="#2dd4bf" stroke-width="1.5" marker-end="url(#d1-arr)"/>
+        <text x="190" y="116" fill="#3a3a5a" font-size="9">calls</text>
+
+        <!-- ConcreteCommand → Receiver -->
+        <line x1="414" y1="200" x2="488" y2="145" stroke="#a78bfa" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#d1-dash)"/>
+        <text x="462" y="168" fill="#3a3a5a" font-size="9">delegates</text>
+
+        <!-- History stack annotation -->
+        <rect x="10" y="10" width="145" height="46" rx="4" fill="#09090e" stroke="#22223a" stroke-dasharray="4,3"/>
+        <text x="82" y="28" text-anchor="middle" fill="#3a3a5a" font-size="9">Deque&lt;EditorCommand&gt;</text>
+        <text x="82" y="44" text-anchor="middle" fill="#3a3a5a" font-size="9">history / redoStack</text>
+        <line x1="82" y1="56" x2="82" y2="88" stroke="#2dd4bf" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#d1-arr)"/>
+      </svg>
+    </div>
+
+    <!-- Diagram 2: Undo/Redo stack mechanics -->
+    <h3 style="margin-top:20px">Diagram 2 — Undo / Redo Stack Mechanics</h3>
+    <p>The history stack is the heart of any editor's undo system. Three rules govern it: execute pushes to history, undo pops from history and pushes to redo, and any new command clears the redo stack (you can't redo after diverging).</p>
+    <div class="diagram-wrap">
+      <svg width="620" height="195" viewBox="0 0 620 195" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="11">
+        <defs>
+          <marker id="d2-g" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#4ade80"/></marker>
+          <marker id="d2-r" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#fb7185"/></marker>
+          <marker id="d2-b" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#60a5fa"/></marker>
+        </defs>
+
+        <!-- State: after 3 operations -->
+        <text x="10"  y="18" fill="#4ade80" font-size="10" font-weight="600">HISTORY STACK</text>
+        <rect x="10"  y="24" width="160" height="32" rx="4" fill="#13131a" stroke="#4ade80"/>
+        <text x="90"  y="44" text-anchor="middle" fill="#4ade80" font-size="11">Delete(10,13)</text>
+        <text x="178" y="43" fill="#4ade80" font-size="9">← TOP (most recent)</text>
+        <rect x="10"  y="58" width="160" height="32" rx="4" fill="#13131a" stroke="#22223a"/>
+        <text x="90"  y="78" text-anchor="middle" fill="#e2e8f0" font-size="11">Bold(5,10)</text>
+        <rect x="10"  y="92" width="160" height="32" rx="4" fill="#13131a" stroke="#22223a"/>
+        <text x="90"  y="112" text-anchor="middle" fill="#e2e8f0" font-size="11">Insert(0,"Hello")</text>
+
+        <!-- UNDO arrow -->
+        <text x="295" y="54" text-anchor="middle" fill="#fb7185" font-size="12" font-weight="600">UNDO (Ctrl+Z)</text>
+        <path d="M172,40 Q240,40 260,80 Q280,120 348,60" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#d2-r)"/>
+        <text x="240" y="90" text-anchor="middle" fill="#3a3a5a" font-size="9">pop + call undo()</text>
+
+        <!-- REDO stack -->
+        <text x="428" y="18" fill="#60a5fa" font-size="10" font-weight="600">REDO STACK</text>
+        <rect x="350" y="24" width="160" height="32" rx="4" fill="#13131a" stroke="#60a5fa"/>
+        <text x="430" y="44" text-anchor="middle" fill="#60a5fa" font-size="11">Delete(10,13)</text>
+        <text x="340" y="43" fill="#60a5fa" font-size="9">TOP →</text>
+
+        <!-- REDO arrow -->
+        <text x="295" y="115" text-anchor="middle" fill="#60a5fa" font-size="11" font-weight="600">REDO (Ctrl+Y)</text>
+        <path d="M350,55 Q310,55 295,90 Q280,125 172,75" fill="none" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#d2-b)"/>
+        <text x="252" y="120" text-anchor="middle" fill="#3a3a5a" font-size="9">pop + re-execute()</text>
+
+        <!-- New command clears redo -->
+        <rect x="10" y="148" width="600" height="40" rx="4" fill="#09090e" stroke="#22223a"/>
+        <text x="310" y="165" text-anchor="middle" fill="#3a3a5a" font-size="10">When a NEW command executes:</text>
+        <text x="310" y="181" text-anchor="middle" fill="#e2e8f0" font-size="11">push to history stack  →  clear redo stack entirely</text>
+      </svg>
+    </div>
+
+    <!-- Diagram 3: Command coalescing -->
+    <h3 style="margin-top:20px">Diagram 3 — Command Coalescing</h3>
+    <p>Users type characters one at a time but expect Ctrl+Z to undo whole words, not individual letters. <strong>Coalescing</strong> merges adjacent compatible commands into one. Every text editor implements this — IntelliJ, VSCode, and Word all coalesce keystrokes into word-level undo units.</p>
+    <div class="diagram-wrap">
+      <svg width="580" height="170" viewBox="0 0 580 170" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="11">
+        <defs>
+          <marker id="d3-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2dd4bf"/></marker>
+          <marker id="d3-red" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#fb7185"/></marker>
+        </defs>
+
+        <!-- Without coalescing -->
+        <text x="10" y="16" fill="#fb7185" font-size="10" font-weight="600" letter-spacing="0.06em">WITHOUT COALESCING</text>
+        <rect x="10"  y="24" width="58" height="28" rx="3" fill="#13131a" stroke="#fb7185"/>
+        <text x="39"  y="42" text-anchor="middle" fill="#fb7185" font-size="10">Ins "H"</text>
+        <rect x="72"  y="24" width="58" height="28" rx="3" fill="#13131a" stroke="#22223a"/>
+        <text x="101" y="42" text-anchor="middle" fill="#e2e8f0" font-size="10">Ins "e"</text>
+        <rect x="134" y="24" width="58" height="28" rx="3" fill="#13131a" stroke="#22223a"/>
+        <text x="163" y="42" text-anchor="middle" fill="#e2e8f0" font-size="10">Ins "l"</text>
+        <rect x="196" y="24" width="58" height="28" rx="3" fill="#13131a" stroke="#22223a"/>
+        <text x="225" y="42" text-anchor="middle" fill="#e2e8f0" font-size="10">Ins "l"</text>
+        <rect x="258" y="24" width="58" height="28" rx="3" fill="#13131a" stroke="#22223a"/>
+        <text x="287" y="42" text-anchor="middle" fill="#e2e8f0" font-size="10">Ins "o"</text>
+        <text x="340" y="42" fill="#3a3a5a" font-size="10">← 5 separate undo steps for "Hello"</text>
+
+        <!-- Arrow down -->
+        <text x="160" y="78" text-anchor="middle" fill="#3a3a5a" font-size="9">coalesce if: same type + adjacent position + within time window</text>
+        <line x1="160" y1="86" x2="160" y2="104" stroke="#2dd4bf" stroke-width="1.5" marker-end="url(#d3-arr)"/>
+
+        <!-- With coalescing -->
+        <text x="10" y="120" fill="#4ade80" font-size="10" font-weight="600" letter-spacing="0.06em">WITH COALESCING</text>
+        <rect x="10"  y="128" width="140" height="32" rx="3" fill="#13131a" stroke="#4ade80" stroke-width="1.5"/>
+        <text x="80"  y="148" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="600">Insert(0, "Hello")</text>
+        <text x="165" y="148" fill="#3a3a5a" font-size="10">← 1 undo step — undoes whole word ✓</text>
+        <text x="165" y="163" fill="#3a3a5a" font-size="9">Merging rule: consecutive InsertCommands at contiguous positions</text>
+      </svg>
+    </div>
+
+    <hr class="div">
+
+    <div class="section-label">// deep_dive_topics</div>
+    <ol class="steps">
+      <li><div><strong>What state must an InsertCommand store?</strong>The position and the text are obvious. But <code>undo()</code> also needs to restore the cursor position. If the user typed at position 5 and the cursor moved to 10, <code>undo()</code> must move the cursor back to 5. Store <em>everything</em> that changed — buffer state, cursor, selection.</div></li>
+      <li><div><strong>What state must a DeleteCommand store?</strong>The deleted text — because it's gone once the deletion executes. <code>execute()</code> must capture the text being deleted <em>before</em> deleting it. This is why commands are objects not method calls: they can run pre-execution capture logic.</div></li>
+      <li><div><strong>Coalescing rule: when should adjacent commands merge?</strong>Two <code>InsertCommands</code> coalesce if: same type, the new insertion starts exactly where the previous one ends (contiguous), and they occur within a time threshold (typically 400–1000ms). A space or punctuation character usually breaks the coalesce window — that's why Ctrl+Z undoes word by word.</div></li>
+      <li><div><strong>Batch commands vs coalescing</strong>Coalescing merges commands silently after the fact. A <code>BatchCommand</code> is an explicit composite — Find &amp; Replace creates one <code>BatchCommand</code> wrapping N <code>ReplaceCommand</code> instances. Undo reverses all N at once because they are a single unit in the history stack.</div></li>
+      <li><div><strong>Why clearing redo on execute is correct</strong>After undoing 3 steps and then typing a new character, the future you undid no longer exists. Keeping the redo stack would allow branching history — possible but complex (see: version control). Simple editors always clear redo on new command.</div></li>
+      <li><div><strong>Serialisable commands for collaborative editing</strong>If <code>InsertCommand</code> implements <code>Serializable</code> (or serialises to JSON), it can be sent to another user's editor and applied. Operational Transformation (OT) and CRDT systems — the technology behind Google Docs — are built on serialisable command objects. Your history stack becomes a distributed event log.</div></li>
+    </ol>
+
+    <div class="callout callout-violet">
+      <div class="callout-title">Text Editor = Canonical Command Pattern Domain</div>
+      <p>The text editor is not just an example of the Command Pattern — it is the <strong>canonical</strong> example. The Gang of Four book introduces Command with a text editor. IntelliJ's entire undo system is a public API (<code>com.intellij.openapi.command.CommandProcessor</code>). VSCode's undo is built on <code>IUndoRedoElement</code>. Every time you press Ctrl+Z in any editor, you are watching the Command Pattern execute.</p>
+    </div>
+
+    <hr class="div">
+    <div class="section-label">// command_vs_memento</div>
+    <h3>Command vs Memento — When to Use Each</h3>
+    <p>Both patterns support undo. Choosing the wrong one is a common mistake.</p>
+    <table class="compare-table">
+      <tr>
+        <th>Aspect</th>
+        <th>Command Pattern</th>
+        <th>Memento Pattern</th>
+      </tr>
+      <tr>
+        <td class="hl">Undo strategy</td>
+        <td class="good">Reverse the operation (insert → delete)</td>
+        <td>Restore a snapshot of the whole state</td>
+      </tr>
+      <tr>
+        <td class="hl">Memory cost</td>
+        <td class="good">Low — only store what changed (the text delta)</td>
+        <td class="bad">High — full copy of document per step</td>
+      </tr>
+      <tr>
+        <td class="hl">Redo support</td>
+        <td class="good">Natural — re-execute the command</td>
+        <td class="bad">Requires saving forward snapshots too</td>
+      </tr>
+      <tr>
+        <td class="hl">Network / collab</td>
+        <td class="good">Commands are serialisable operations</td>
+        <td class="bad">Snapshots can't be merged across clients</td>
+      </tr>
+      <tr>
+        <td class="hl">Best for</td>
+        <td class="good">Text editors, CAD tools, databases</td>
+        <td>Games (save states), config rollback</td>
+      </tr>
+      <tr>
+        <td class="hl">Complexity</td>
+        <td>Each command must implement reverse logic</td>
+        <td class="good">Simple — just copy/restore state</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- ══════════════════════════════════ PANEL 4 ══ -->
+  <div id="panel-refactor" class="panel">
+    <div class="section-label">// step_04</div>
+    <h2>Refactored — Full Command System</h2>
+    <p><code>TextBuffer</code>, <code>FormattingEngine</code>, and <code>SelectionModel</code> from the baseline are unchanged. All new code is in commands and the <code>EditorEngine</code> invoker.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">EditorCommand.java — The Interface</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">/**
+ * Every editor operation implements this.
+ * describe() powers the history panel ("Typed 'hello'", "Deleted 3 chars").
+ * canCoalesceWith() enables word-level undo by merging adjacent keystrokes.
+ */</span>
+<span class="kw">public interface</span> <span class="cl">EditorCommand</span> {
+    <span class="kw">void</span> <span class="fn">execute</span>();
+    <span class="kw">void</span> <span class="fn">undo</span>();
+
+    <span class="kw">default</span> <span class="cl">String</span>  <span class="fn">describe</span>()                          { <span class="kw">return</span> <span class="fn">getClass</span>().<span class="fn">getSimpleName</span>(); }
+    <span class="kw">default boolean</span> <span class="fn">canCoalesceWith</span>(<span class="cl">EditorCommand</span> other) { <span class="kw">return false</span>; }
+    <span class="kw">default void</span>    <span class="fn">coalesceWith</span>(<span class="cl">EditorCommand</span> other)    { }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">InsertCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">InsertCommand</span> <span class="kw">implements</span> <span class="cl">EditorCommand</span> {
+
+    <span class="kw">private final</span> <span class="cl">TextBuffer</span>     buffer;
+    <span class="kw">private final</span> <span class="cl">SelectionModel</span> selection;
+    <span class="kw">private final</span> <span class="kw">int</span>           position;
+    <span class="kw">private</span>       <span class="cl">String</span>        text;          <span class="cm">// mutable: grows during coalescing</span>
+    <span class="kw">private final</span> <span class="kw">int</span>           prevCursor;    <span class="cm">// cursor before — needed by undo()</span>
+    <span class="kw">private final</span> <span class="kw">long</span>          timestamp;     <span class="cm">// for coalesce time window</span>
+
+    <span class="kw">public</span> <span class="fn">InsertCommand</span>(<span class="cl">TextBuffer</span> buf, <span class="cl">SelectionModel</span> sel, <span class="kw">int</span> pos, <span class="cl">String</span> text) {
+        <span class="kw">this</span>.buffer    = buf;
+        <span class="kw">this</span>.selection = sel;
+        <span class="kw">this</span>.position  = pos;
+        <span class="kw">this</span>.text      = text;
+        <span class="kw">this</span>.prevCursor = sel.<span class="fn">getCursor</span>();
+        <span class="kw">this</span>.timestamp  = <span class="cl">System</span>.currentTimeMillis();
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        buffer.<span class="fn">insert</span>(position, text);
+        selection.<span class="fn">moveCursor</span>(position + text.<span class="fn">length</span>());
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        buffer.<span class="fn">delete</span>(position, position + text.<span class="fn">length</span>());
+        selection.<span class="fn">moveCursor</span>(prevCursor); <span class="cm">// restore cursor exactly</span>
+    }
+
+    <span class="cm">// Coalescing: merge if both are inserts, positions are contiguous, and within 800ms</span>
+    <span class="an">@Override</span>
+    <span class="kw">public boolean</span> <span class="fn">canCoalesceWith</span>(<span class="cl">EditorCommand</span> other) {
+        <span class="kw">if</span> (!(other <span class="kw">instanceof</span> <span class="cl">InsertCommand</span> o)) <span class="kw">return false</span>;
+        <span class="kw">return</span> o.position == position + text.<span class="fn">length</span>()  <span class="cm">// contiguous</span>
+            && o.timestamp - timestamp < <span class="nu">800</span>;           <span class="cm">// within time window</span>
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">coalesceWith</span>(<span class="cl">EditorCommand</span> other) {
+        text += ((<span class="cl">InsertCommand</span>) other).text; <span class="cm">// grow the text — no new stack entry</span>
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() {
+        <span class="cl">String</span> preview = text.<span class="fn">length</span>() > <span class="nu">20</span> ? text.<span class="fn">substring</span>(<span class="nu">0</span>, <span class="nu">20</span>) + <span class="st">"…"</span> : text;
+        <span class="kw">return</span> <span class="st">"Typed \""</span> + preview + <span class="st">"\""</span>;
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">DeleteCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">DeleteCommand</span> <span class="kw">implements</span> <span class="cl">EditorCommand</span> {
+
+    <span class="kw">private final</span> <span class="cl">TextBuffer</span>     buffer;
+    <span class="kw">private final</span> <span class="cl">SelectionModel</span> selection;
+    <span class="kw">private final</span> <span class="kw">int</span>           start, end;
+    <span class="kw">private</span>       <span class="cl">String</span>        deletedText; <span class="cm">// captured BEFORE execute()</span>
+    <span class="kw">private final</span> <span class="kw">int</span>           prevCursor;
+
+    <span class="kw">public</span> <span class="fn">DeleteCommand</span>(<span class="cl">TextBuffer</span> buf, <span class="cl">SelectionModel</span> sel, <span class="kw">int</span> start, <span class="kw">int</span> end) {
+        <span class="kw">this</span>.buffer     = buf;
+        <span class="kw">this</span>.selection  = sel;
+        <span class="kw">this</span>.start      = start;
+        <span class="kw">this</span>.end        = end;
+        <span class="kw">this</span>.prevCursor = sel.<span class="fn">getCursor</span>();
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        deletedText = buffer.<span class="fn">substring</span>(start, end); <span class="cm">// capture BEFORE deleting!</span>
+        buffer.<span class="fn">delete</span>(start, end);
+        selection.<span class="fn">moveCursor</span>(start);
+        selection.<span class="fn">clearSelection</span>();
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        buffer.<span class="fn">insert</span>(start, deletedText); <span class="cm">// re-insert exactly what was removed</span>
+        selection.<span class="fn">moveCursor</span>(prevCursor);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() {
+        <span class="kw">return</span> <span class="st">"Deleted "</span> + (end - start) + <span class="st">" char(s)"</span>;
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">FormatCommand.java + BatchCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">FormatCommand</span> <span class="kw">implements</span> <span class="cl">EditorCommand</span> {
+
+    <span class="kw">private final</span> <span class="cl">FormattingEngine</span> formatter;
+    <span class="kw">private final</span> <span class="cl">FormatType</span>      type;
+    <span class="kw">private final</span> <span class="kw">int</span>             start, end;
+    <span class="kw">private</span>       <span class="cl">FormatSpan</span>     appliedSpan; <span class="cm">// stored for undo()</span>
+
+    <span class="kw">public</span> <span class="fn">FormatCommand</span>(<span class="cl">FormattingEngine</span> f, <span class="cl">FormatType</span> type, <span class="kw">int</span> start, <span class="kw">int</span> end) {
+        <span class="kw">this</span>.formatter = f; <span class="kw">this</span>.type = type;
+        <span class="kw">this</span>.start = start; <span class="kw">this</span>.end = end;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        appliedSpan = formatter.<span class="fn">applyFormat</span>(type, start, end); <span class="cm">// returns the span created</span>
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        formatter.<span class="fn">removeSpan</span>(appliedSpan); <span class="cm">// removes exactly the span we added</span>
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() { <span class="kw">return</span> <span class="st">"Applied "</span> + type + <span class="st">" ("</span> + start + <span class="st">"-"</span> + end + <span class="st">")"</span>; }
+}
+
+<span class="cm">// ─────────────────────────────────────────────────────────
+// BatchCommand — executes N commands as a single undo unit
+// Used by: Find&Replace, paste, multi-cursor edits
+// ─────────────────────────────────────────────────────────</span>
+<span class="kw">public class</span> <span class="cl">BatchCommand</span> <span class="kw">implements</span> <span class="cl">EditorCommand</span> {
+
+    <span class="kw">private final</span> <span class="cl">String</span>              label;
+    <span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">EditorCommand</span>&gt; commands;
+
+    <span class="kw">public</span> <span class="fn">BatchCommand</span>(<span class="cl">String</span> label, <span class="cl">List</span>&lt;<span class="cl">EditorCommand</span>&gt; commands) {
+        <span class="kw">this</span>.label    = label;
+        <span class="kw">this</span>.commands = <span class="cl">List</span>.<span class="fn">copyOf</span>(commands);
+    }
+
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">execute</span>() { commands.<span class="fn">forEach</span>(<span class="cl">EditorCommand</span>::<span class="fn">execute</span>); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="kw">var</span> reversed = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(commands);
+        <span class="cl">Collections</span>.<span class="fn">reverse</span>(reversed);
+        reversed.<span class="fn">forEach</span>(<span class="cl">EditorCommand</span>::<span class="fn">undo</span>);
+    }
+
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() { <span class="kw">return</span> label + <span class="st">" ("</span> + commands.<span class="fn">size</span>() + <span class="st">" ops)"</span>; }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">EditorEngine.java — The Invoker</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">EditorEngine</span> {
+
+    <span class="kw">private final</span> <span class="cl">Deque</span>&lt;<span class="cl">EditorCommand</span>&gt; history   = <span class="kw">new</span> <span class="cl">ArrayDeque</span>&lt;&gt;();
+    <span class="kw">private final</span> <span class="cl">Deque</span>&lt;<span class="cl">EditorCommand</span>&gt; redoStack = <span class="kw">new</span> <span class="cl">ArrayDeque</span>&lt;&gt;();
+    <span class="kw">private static final int</span> MAX_HISTORY = <span class="nu">200</span>;
+
+    <span class="kw">public void</span> <span class="fn">execute</span>(<span class="cl">EditorCommand</span> cmd) {
+        cmd.<span class="fn">execute</span>();
+
+        <span class="cm">// Try to coalesce with the top of the history stack</span>
+        <span class="kw">if</span> (!history.<span class="fn">isEmpty</span>() && history.<span class="fn">peek</span>().<span class="fn">canCoalesceWith</span>(cmd)) {
+            history.<span class="fn">peek</span>().<span class="fn">coalesceWith</span>(cmd); <span class="cm">// merge into existing entry</span>
+        } <span class="kw">else</span> {
+            history.<span class="fn">push</span>(cmd);              <span class="cm">// add new entry</span>
+            <span class="kw">if</span> (history.<span class="fn">size</span>() > MAX_HISTORY) history.<span class="fn">removeLast</span>();
+        }
+        redoStack.<span class="fn">clear</span>();
+    }
+
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="kw">if</span> (history.<span class="fn">isEmpty</span>()) { <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Nothing to undo"</span>); <span class="kw">return</span>; }
+        <span class="cl">EditorCommand</span> cmd = history.<span class="fn">pop</span>();
+        cmd.<span class="fn">undo</span>();
+        redoStack.<span class="fn">push</span>(cmd);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[UNDO] "</span> + cmd.<span class="fn">describe</span>());
+    }
+
+    <span class="kw">public void</span> <span class="fn">redo</span>() {
+        <span class="kw">if</span> (redoStack.<span class="fn">isEmpty</span>()) { <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Nothing to redo"</span>); <span class="kw">return</span>; }
+        <span class="cl">EditorCommand</span> cmd = redoStack.<span class="fn">pop</span>();
+        cmd.<span class="fn">execute</span>();
+        history.<span class="fn">push</span>(cmd);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[REDO] "</span> + cmd.<span class="fn">describe</span>());
+    }
+
+    <span class="kw">public</span> <span class="cl">List</span>&lt;<span class="cl">String</span>&gt; <span class="fn">getHistoryLog</span>() {
+        <span class="kw">return</span> history.<span class="fn">stream</span>().<span class="fn">map</span>(<span class="cl">EditorCommand</span>::<span class="fn">describe</span>).<span class="fn">toList</span>();
+    }
+}</code></pre>
+    </div>
+
+    <div class="undo-log">
+      <div class="ul-line"><span class="ul-ts">[T+0]</span><span class="ul-exec">[EXEC] Typed "The quick brown fox"</span></div>
+      <div class="ul-line"><span class="ul-ts">[T+1]</span><span class="ul-exec">[EXEC] Applied BOLD (4-9)</span></div>
+      <div class="ul-line"><span class="ul-ts">[T+2]</span><span class="ul-exec">[EXEC] Deleted 3 char(s)</span></div>
+      <div class="ul-line"><span class="ul-ts">[T+3]</span><span class="ul-batch">[EXEC] Find&amp;Replace "fox"→"cat" (2 ops)</span></div>
+      <div class="ul-line"><span class="ul-ts">[T+4]</span><span class="ul-undo">[UNDO] Find&amp;Replace "fox"→"cat" (2 ops) ← reverses both at once</span></div>
+      <div class="ul-line"><span class="ul-ts">[T+5]</span><span class="ul-redo">[REDO] Find&amp;Replace "fox"→"cat" (2 ops)</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ PANEL 5 ══ -->
+  <div id="panel-challenges" class="panel">
+    <div class="section-label">// step_05</div>
+    <h2>Practice Challenges</h2>
+    <p>Ten challenges across three tiers. All build on the refactored system from panel ④.</p>
+
+    <!-- EASY -->
+    <div class="tier tier-easy">
+      <div class="tier-header">
+        <span class="tier-icon">✏️</span>
+        <div>
+          <div class="tier-title">DRAFT TIER</div>
+          <div class="tier-sub">Challenges 1–3 · Core mechanics — new commands, history limits</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Draft</span><span class="tag tag-green">Challenge 1</span></div>
+          <h3>ReplaceAllCommand</h3>
+          <p>Create a <code>ReplaceAllCommand</code> that performs a find-and-replace across the entire <code>TextBuffer</code>. <code>execute()</code> substitutes every occurrence of the search string. <code>undo()</code> must perfectly restore the original text — even when there are 0 matches. Store the minimum necessary state: you do not need to snapshot the entire document.</p>
+          <div class="callout callout-green" style="margin-top:10px"><div class="callout-title">Think About</div><p>The naive approach is to snapshot the whole buffer before replacement. But that's O(n) memory per operation. A smarter approach records each individual substitution as an offset + replaced text. Which is more appropriate here, and why?</p></div>
+        </div>
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Draft</span><span class="tag tag-green">Challenge 2</span></div>
+          <h3>History Panel</h3>
+          <p>Add a <code>getHistoryPanel()</code> method to <code>EditorEngine</code> that returns a formatted list of all history entries, newest first, numbered from 1. Each entry shows the step number, description, and an indicator of which step is "current" (the most recently executed). This is the history list shown in IntelliJ's Local History.</p>
+          <div class="callout callout-green" style="margin-top:10px"><div class="callout-title">Goal</div><p>Implement <code>describe()</code> properly on all commands — this is the method that surfaces in the UI. Good descriptions ("Typed 'hello world'") are what separate professional editors from toys.</p></div>
+        </div>
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Draft</span><span class="tag tag-green">Challenge 3</span></div>
+          <h3>Undo Checkpoint / Save Point</h3>
+          <p>Add a <code>setSavePoint()</code> method to <code>EditorEngine</code> that marks the current history position. Add <code>isModifiedSinceSave()</code> that returns true if any commands have been executed or undone since the save point. This is how editors show the "unsaved changes" indicator (the dot in the VSCode tab title).</p>
+          <div class="callout callout-green" style="margin-top:10px"><div class="callout-title">Think About</div><p>The save point is a reference to a position in the history stack — not a snapshot of content. If the user undoes back to exactly the save point, <code>isModifiedSinceSave()</code> should return false again. How do you track "same position" without snapshots?</p></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MEDIUM -->
+    <div class="tier tier-medium">
+      <div class="tier-header">
+        <span class="tier-icon">📄</span>
+        <div>
+          <div class="tier-title">EDITOR TIER</div>
+          <div class="tier-sub">Challenges 4–7 · Composition, coalescing, real mechanics</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Editor</span><span class="tag tag-blue">Challenge 4</span></div>
+          <h3>Word-Level Undo via Coalescing</h3>
+          <p>Extend the coalescing logic in <code>InsertCommand</code>: break the coalesce window whenever a space, newline, or punctuation character is typed. Each "word" typed should coalesce into a single undo step, but whitespace starts a new step. Write a test that types "Hello world foo" character by character and verifies the history stack has exactly three entries: "Hello", " world", " foo".</p>
+          <div class="callout callout-blue" style="margin-top:10px"><div class="callout-title">Think About</div><p>This is the exact rule most editors use. IntelliJ undoes by word. VSCode undoes by word. The rule is: space/newline/punctuation typed at position N breaks the coalesce chain for all subsequent characters. How do you detect "is this character a word boundary"?</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Editor</span><span class="tag tag-blue">Challenge 5</span></div>
+          <h3>Cursor-Aware Paste Command</h3>
+          <p>Create a <code>PasteCommand</code> that inserts the contents of a simulated clipboard (<code>String clipboard</code>) at the current cursor position. If a selection is active, the selection is replaced (implement this as a <code>BatchCommand</code> of a <code>DeleteCommand</code> + <code>InsertCommand</code>). Undo must correctly restore the original selection state — including the selection range, not just the cursor position.</p>
+          <div class="callout callout-blue" style="margin-top:10px"><div class="callout-title">Think About</div><p>Paste-with-selection is a compound operation — it's naturally a <code>BatchCommand</code>. But should it appear in the history as one entry ("Pasted 'hello world'") or two ("Deleted selection", "Inserted 'hello world'")? User expectation says one. How do you reconcile that with a <code>BatchCommand</code>?</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Editor</span><span class="tag tag-blue">Challenge 6</span></div>
+          <h3>Macro Recorder</h3>
+          <p>Add <code>startRecording()</code> and <code>stopRecording(): MacroCommand</code> to <code>EditorEngine</code>. While recording, all executed commands are captured into a list. <code>stopRecording()</code> returns a <code>MacroCommand</code> that wraps the captured list. Replaying the macro re-executes all commands. The macro itself should be executable and undoable as a single unit.</p>
+          <div class="callout callout-blue" style="margin-top:10px"><div class="callout-title">Think About</div><p>Should the recorded commands be the <em>same</em> instances that were executed during recording, or <em>copies</em>? If they are the same instances, replaying the macro calls <code>execute()</code> on already-executed commands. Is that safe? What happens to state captured during the original execution?</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Editor</span><span class="tag tag-blue">Challenge 7</span></div>
+          <h3>TransactionalCommand — All-or-Nothing</h3>
+          <p>Create a <code>TransactionalCommand</code> that executes a list of sub-commands. If any sub-command throws an exception during <code>execute()</code>, all previously-executed sub-commands in the batch are automatically undone before the exception propagates. The history stack should never contain a partially-applied batch.</p>
+          <div class="callout callout-blue" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This is ACID atomicity applied to editor commands. Database transactions work the same way: if any statement fails, all changes are rolled back. The pattern is identical — execute, catch failure, undo completed steps in reverse order.</p></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- HARD -->
+    <div class="tier tier-hard">
+      <div class="tier-header">
+        <span class="tier-icon">🖥️</span>
+        <div>
+          <div class="tier-title">ARCHITECT TIER</div>
+          <div class="tier-sub">Challenges 8–10 · Serialisation, concurrency, cross-pattern</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge hard">
+          <div class="challenge-meta"><span class="diff diff-hard">Architect</span><span class="tag tag-rose">Challenge 8</span></div>
+          <h3>Serialisable Command Log — Crash Recovery</h3>
+          <p>Make <code>InsertCommand</code>, <code>DeleteCommand</code>, and <code>FormatCommand</code> implement <code>Serializable</code>. After every <code>execute()</code>, append the command to a <code>commands.log</code> file. On startup, if the log file exists, replay all commands in order to restore the document to its last known state — even if the editor crashed. This is how write-ahead logs in databases provide crash recovery.</p>
+          <div class="callout callout-rose" style="margin-top:10px"><div class="callout-title">Think About</div><p>The log grows forever. When should it be truncated? On a clean save, the log can be cleared — the document file is now the ground truth. How do you handle the case where the crash log exists but the document file was also saved partway? Which is more recent?</p></div>
+        </div>
+
+        <div class="challenge hard">
+          <div class="challenge-meta"><span class="diff diff-hard">Architect</span><span class="tag tag-rose">Challenge 9</span></div>
+          <h3>Operational Transformation — Basic Collaborative Editing</h3>
+          <p>Two editors (User A and User B) each have a copy of the same document. User A inserts "hello" at position 0. Simultaneously, User B inserts "world" at position 0. When A's command arrives at B's editor, it must be <strong>transformed</strong> against B's already-applied command before being applied — otherwise positions are wrong. Implement a <code>transform(InsertCommand incoming, InsertCommand applied)</code> method that adjusts the incoming command's position based on the already-applied one.</p>
+          <div class="callout callout-rose" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This is Operational Transformation — the core algorithm behind Google Docs, Etherpad, and CRDTs. It's a direct extension of the Command Pattern: commands are serialisable, transformable, and replayable. Every Google Doc edit is a transformed Command object.</p></div>
+        </div>
+
+        <div class="challenge boss">
+          <div class="challenge-meta"><span class="diff diff-boss">BOSS</span><span class="tag tag-violet">Challenge 10</span></div>
+          <h3>New Domain — Database Migration Runner</h3>
+          <p>Port Command to database migrations. <code>Receiver</code>: a <code>Database</code> class with <code>executeSQL(String)</code>. Commands: <code>CreateTableCommand</code>, <code>AddColumnCommand</code>, <code>SeedDataCommand</code>. Each command has an <code>up()</code> (execute) and <code>down()</code> (undo). An <code>MigrationRunner</code> (the Invoker) applies migrations in order and can roll back to any prior version. Map this to the real Flyway/Liquibase migration system.</p>
+          <div class="callout callout-violet" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>Flyway's <code>V1__create_users.sql</code> + <code>U1__create_users.sql</code> is literally Command Pattern: <code>V</code> files are <code>execute()</code>, <code>U</code> files are <code>undo()</code>. Liquibase's <code>&lt;changeSet&gt;</code> with <code>&lt;rollback&gt;</code> is a serialised <code>EditorCommand</code>. You have been writing Command Pattern every time you wrote a database migration.</p></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ PANEL 6 ══ -->
+  <div id="panel-solutions" class="panel">
+    <div class="section-label">// step_06</div>
+    <h2>Challenge Solutions</h2>
+    <p>Full solutions with design commentary. Always attempt first.</p>
+
+    <!-- S1 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Draft</span><span class="tag tag-green">Solution 1 — ReplaceAllCommand</span></div><h3>Track individual substitutions, not a full snapshot.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">ReplaceAllCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">ReplaceAllCommand</span> <span class="kw">implements</span> <span class="cl">EditorCommand</span> {
+
+    <span class="kw">private final</span> <span class="cl">TextBuffer</span> buffer;
+    <span class="kw">private final</span> <span class="cl">String</span>     find, replace;
+
+    <span class="cm">// Records each substitution: offset where it occurred + original text there
+    // Much cheaper than snapshotting the whole buffer</span>
+    <span class="kw">private record</span> <span class="cl">Substitution</span>(<span class="kw">int</span> offset, <span class="cl">String</span> original, <span class="cl">String</span> replacement) {}
+    <span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">Substitution</span>&gt; subs = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+
+    <span class="kw">public</span> <span class="fn">ReplaceAllCommand</span>(<span class="cl">TextBuffer</span> buf, <span class="cl">String</span> find, <span class="cl">String</span> replace) {
+        <span class="kw">this</span>.buffer = buf; <span class="kw">this</span>.find = find; <span class="kw">this</span>.replace = replace;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        subs.<span class="fn">clear</span>();
+        <span class="cl">String</span> text = buffer.<span class="fn">getText</span>();
+        <span class="kw">int</span> offset = <span class="nu">0</span>;
+        <span class="kw">int</span> idx;
+        <span class="cm">// Walk through finding each occurrence, tracking live offsets</span>
+        <span class="kw">while</span> ((idx = text.<span class="fn">indexOf</span>(find, offset)) != <span class="nu">-1</span>) {
+            subs.<span class="fn">add</span>(<span class="kw">new</span> <span class="cl">Substitution</span>(idx, find, replace));
+            text = text.<span class="fn">substring</span>(<span class="nu">0</span>, idx) + replace + text.<span class="fn">substring</span>(idx + find.<span class="fn">length</span>());
+            offset = idx + replace.<span class="fn">length</span>();
+        }
+        buffer.<span class="fn">clear</span>();
+        buffer.<span class="fn">insert</span>(<span class="nu">0</span>, text);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="cm">// Reverse substitutions in reverse order to keep offsets valid</span>
+        <span class="cl">String</span> text = buffer.<span class="fn">getText</span>();
+        <span class="cl">List</span>&lt;<span class="cl">Substitution</span>&gt; reversed = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(subs);
+        <span class="cl">Collections</span>.<span class="fn">reverse</span>(reversed);
+        <span class="kw">for</span> (<span class="cl">Substitution</span> s : reversed) {
+            text = text.<span class="fn">substring</span>(<span class="nu">0</span>, s.offset())
+                 + s.original()
+                 + text.<span class="fn">substring</span>(s.offset() + s.replacement().<span class="fn">length</span>());
+        }
+        buffer.<span class="fn">clear</span>();
+        buffer.<span class="fn">insert</span>(<span class="nu">0</span>, text);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() {
+        <span class="kw">return</span> <span class="st">"Replace all \""</span> + find + <span class="st">"\"→\""</span> + replace + <span class="st">"\" ("</span> + subs.<span class="fn">size</span>() + <span class="st">" occurrences)"</span>;
+    }
+}
+
+<span class="cm">// When zero matches: subs is empty. undo() is a no-op. ✓
+// Memory: O(k) where k = number of matches. Beats O(n) snapshot. ✓
+// Note: if find and replace have different lengths, offsets shift.
+//   That's why we reverse the substitutions on undo — rightmost first.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S2 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Draft</span><span class="tag tag-green">Solution 2 — History Panel</span></div><h3>Numbered list of operations, newest first, with current marker.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">EditorEngine.java — getHistoryPanel()</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public</span> <span class="cl">String</span> <span class="fn">getHistoryPanel</span>() {
+    <span class="kw">if</span> (history.<span class="fn">isEmpty</span>()) <span class="kw">return</span> <span class="st">"(no history)"</span>;
+    <span class="kw">var</span> sb = <span class="kw">new</span> <span class="cl">StringBuilder</span>();
+    <span class="kw">var</span> entries = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(history); <span class="cm">// snapshot (newest first)</span>
+    <span class="kw">for</span> (<span class="kw">int</span> i = <span class="nu">0</span>; i < entries.<span class="fn">size</span>(); i++) {
+        <span class="cl">String</span> marker = (i == <span class="nu">0</span>) ? <span class="st">" ← current"</span> : <span class="st">""</span>;
+        sb.<span class="fn">append</span>(<span class="cl">String</span>.<span class="fn">format</span>(<span class="st">"  %2d. %s%s%n"</span>, i + <span class="nu">1</span>, entries.<span class="fn">get</span>(i).<span class="fn">describe</span>(), marker));
+    }
+    <span class="kw">return</span> sb.<span class="fn">toString</span>();
+}
+
+<span class="cm">// Output example:
+//    1. Typed "Hello world"  ← current
+//    2. Applied BOLD (0-5)
+//    3. Deleted 3 char(s)
+//    4. Replace all "fox"→"cat" (2 occurrences)
+//
+// The describe() contract is the key — every command is responsible for
+// providing a human-readable label. This is the UI contract.
+// IntelliJ's "Local History" window is powered by exactly this mechanism.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S3 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Draft</span><span class="tag tag-green">Solution 3 — Undo Checkpoint</span></div><h3>Track history depth at save time, compare on each change.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">EditorEngine.java — save point tracking</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Track the command that was at the top of history when saved
+// null = never saved (modified from the start)</span>
+<span class="kw">private</span> <span class="cl">EditorCommand</span> savePointCommand = <span class="kw">null</span>;
+<span class="kw">private boolean</span>        savedOnEmptyHistory = <span class="kw">false</span>;
+
+<span class="kw">public void</span> <span class="fn">setSavePoint</span>() {
+    savePointCommand    = history.<span class="fn">isEmpty</span>() ? <span class="kw">null</span> : history.<span class="fn">peek</span>();
+    savedOnEmptyHistory = history.<span class="fn">isEmpty</span>();
+}
+
+<span class="kw">public boolean</span> <span class="fn">isModifiedSinceSave</span>() {
+    <span class="kw">if</span> (savedOnEmptyHistory) <span class="kw">return</span> !history.<span class="fn">isEmpty</span>();
+    <span class="kw">if</span> (savePointCommand == <span class="kw">null</span>) <span class="kw">return</span> !history.<span class="fn">isEmpty</span>();
+    <span class="cm">// Modified if the top of history is no longer the saved command</span>
+    <span class="kw">return</span> history.<span class="fn">isEmpty</span>() || history.<span class="fn">peek</span>() != savePointCommand;
+}
+
+<span class="cm">// Demonstration:
+// engine.execute(cmd1);
+// engine.execute(cmd2);
+// engine.setSavePoint();      // save — top is cmd2
+// isModifiedSinceSave() → false ✓
+//
+// engine.execute(cmd3);
+// isModifiedSinceSave() → true  ✓  (top is now cmd3)
+//
+// engine.undo(); // undo cmd3, top back to cmd2
+// isModifiedSinceSave() → false ✓  (back to saved state)
+//
+// engine.undo(); // undo cmd2, top now cmd1
+// isModifiedSinceSave() → true  ✓  (went past save point)
+//
+// This is the "●" dot in VSCode's tab title — one reference comparison. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S4 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Editor</span><span class="tag tag-blue">Solution 4 — Word-Level Undo</span></div><h3>Break coalesce on word boundary characters.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">InsertCommand.java — word boundary coalescing</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">private static final</span> <span class="cl">String</span> WORD_BOUNDARIES = <span class="st">" \t\n.,;:!?()[]{}\"'"</span>;
+
+<span class="an">@Override</span>
+<span class="kw">public boolean</span> <span class="fn">canCoalesceWith</span>(<span class="cl">EditorCommand</span> other) {
+    <span class="kw">if</span> (!(other <span class="kw">instanceof</span> <span class="cl">InsertCommand</span> o)) <span class="kw">return false</span>;
+    <span class="cm">// Break coalesce if THIS command's text ends with a word boundary
+    // (i.e. the user just typed a space — next char starts new word)</span>
+    <span class="kw">if</span> (!text.<span class="fn">isEmpty</span>() && WORD_BOUNDARIES.<span class="fn">indexOf</span>(text.<span class="fn">charAt</span>(text.<span class="fn">length</span>()-<span class="nu">1</span>)) >= <span class="nu">0</span>)
+        <span class="kw">return false</span>;
+    <span class="cm">// Also break if the INCOMING char is a word boundary</span>
+    <span class="kw">if</span> (!o.text.<span class="fn">isEmpty</span>() && WORD_BOUNDARIES.<span class="fn">indexOf</span>(o.text.<span class="fn">charAt</span>(<span class="nu">0</span>)) >= <span class="nu">0</span>)
+        <span class="kw">return false</span>;
+    <span class="kw">return</span> o.position == position + text.<span class="fn">length</span>()  <span class="cm">// contiguous</span>
+        && o.timestamp - timestamp < <span class="nu">800</span>;           <span class="cm">// time window</span>
+}
+
+<span class="cm">// Test verification:
+// Type: H-e-l-l-o (coalesce) → "Hello" [1 history entry]
+// Type: space → breaks coalesce window
+// Type: w-o-r-l-d (coalesce) → " world" [new entry, includes space]
+// Type: space
+// Type: f-o-o → " foo" [new entry]
+//
+// history.size() == 3: ["Hello", " world", " foo"] ✓
+// Ctrl+Z: "foo" → Ctrl+Z: "world" → Ctrl+Z: "Hello" → empty ✓
+// This matches VSCode/IntelliJ word-level undo exactly.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S5 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Editor</span><span class="tag tag-blue">Solution 5 — Paste Command</span></div><h3>Paste is a BatchCommand internally, but appears as one undo step.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">PasteCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">PasteCommand</span> <span class="kw">implements</span> <span class="cl">EditorCommand</span> {
+
+    <span class="kw">private final</span> <span class="cl">TextBuffer</span>     buffer;
+    <span class="kw">private final</span> <span class="cl">SelectionModel</span> selection;
+    <span class="kw">private final</span> <span class="cl">String</span>         clipboard;
+
+    <span class="cm">// Inner commands built during execute() — not before, because positions
+    // depend on the selection state at execute time</span>
+    <span class="kw">private</span> <span class="cl">EditorCommand</span> inner;
+
+    <span class="kw">public</span> <span class="fn">PasteCommand</span>(<span class="cl">TextBuffer</span> buf, <span class="cl">SelectionModel</span> sel, <span class="cl">String</span> clipboard) {
+        <span class="kw">this</span>.buffer = buf; <span class="kw">this</span>.selection = sel; <span class="kw">this</span>.clipboard = clipboard;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        <span class="kw">if</span> (selection.<span class="fn">hasSelection</span>()) {
+            <span class="cm">// Delete selection + insert: two ops, one undo unit</span>
+            <span class="kw">var</span> del = <span class="kw">new</span> <span class="cl">DeleteCommand</span>(buffer, selection,
+                                       selection.<span class="fn">getSelectionStart</span>(),
+                                       selection.<span class="fn">getSelectionEnd</span>());
+            <span class="kw">var</span> ins = <span class="kw">new</span> <span class="cl">InsertCommand</span>(buffer, selection,
+                                       selection.<span class="fn">getSelectionStart</span>(), clipboard);
+            inner = <span class="kw">new</span> <span class="cl">BatchCommand</span>(<span class="st">"Paste"</span>, <span class="cl">List</span>.<span class="fn">of</span>(del, ins));
+        } <span class="kw">else</span> {
+            inner = <span class="kw">new</span> <span class="cl">InsertCommand</span>(buffer, selection,
+                                        selection.<span class="fn">getCursor</span>(), clipboard);
+        }
+        inner.<span class="fn">execute</span>();
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>()    { inner.<span class="fn">undo</span>(); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() {
+        <span class="cl">String</span> preview = clipboard.<span class="fn">length</span>() > <span class="nu">20</span>
+            ? clipboard.<span class="fn">substring</span>(<span class="nu">0</span>, <span class="nu">20</span>) + <span class="st">"…"</span> : clipboard;
+        <span class="kw">return</span> <span class="st">"Pasted \""</span> + preview + <span class="st">"\""</span>;
+    }
+}
+
+<span class="cm">// Key design: PasteCommand builds its inner command(s) lazily at execute() time.
+// If built at construction time, the selection might change before execute() runs.
+//
+// User sees: "Pasted 'hello world'" in the history panel — one clean entry. ✓
+// Undo restores both the inserted text AND the original selection. ✓
+// inner.undo() calls BatchCommand.undo() which reverses delete+insert in order. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S6 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Editor</span><span class="tag tag-blue">Solution 6 — Macro Recorder</span></div><h3>Capture commands during recording; wrap as a replayable MacroCommand.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">EditorEngine.java + MacroCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// In EditorEngine:</span>
+<span class="kw">private</span> <span class="cl">List</span>&lt;<span class="cl">EditorCommand</span>&gt; recording    = <span class="kw">null</span>;
+<span class="kw">private boolean</span>             isRecording   = <span class="kw">false</span>;
+
+<span class="kw">public void</span> <span class="fn">startRecording</span>() {
+    recording    = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+    isRecording  = <span class="kw">true</span>;
+    <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[REC] Recording started"</span>);
+}
+
+<span class="kw">public</span> <span class="cl">MacroCommand</span> <span class="fn">stopRecording</span>(<span class="cl">String</span> name) {
+    isRecording = <span class="kw">false</span>;
+    <span class="cl">MacroCommand</span> macro = <span class="kw">new</span> <span class="cl">MacroCommand</span>(name, <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(recording));
+    recording = <span class="kw">null</span>;
+    <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[REC] Macro '"</span> + name + <span class="st">"' saved ("</span> + macro.<span class="fn">size</span>() + <span class="st">" steps)"</span>);
+    <span class="kw">return</span> macro;
+}
+
+<span class="kw">public void</span> <span class="fn">execute</span>(<span class="cl">EditorCommand</span> cmd) {
+    cmd.<span class="fn">execute</span>();
+    <span class="kw">if</span> (isRecording) recording.<span class="fn">add</span>(cmd);          <span class="cm">// capture during recording</span>
+    <span class="cm">// ... rest of coalesce + history logic</span>
+}
+
+<span class="cm">// MacroCommand — replays using FRESH command instances (not originals)</span>
+<span class="kw">public class</span> <span class="cl">MacroCommand</span> <span class="kw">implements</span> <span class="cl">EditorCommand</span> {
+    <span class="kw">private final</span> <span class="cl">String</span>                       name;
+    <span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">Supplier</span>&lt;<span class="cl">EditorCommand</span>&gt;&gt; steps; <span class="cm">// factories, not instances</span>
+
+    <span class="kw">public</span> <span class="fn">MacroCommand</span>(<span class="cl">String</span> name, <span class="cl">List</span>&lt;<span class="cl">EditorCommand</span>&gt; recorded) {
+        <span class="kw">this</span>.name  = name;
+        <span class="cm">// Store suppliers that create fresh copies on replay</span>
+        <span class="kw">this</span>.steps = recorded.<span class="fn">stream</span>().<span class="fn">map</span>(cmd -> (<span class="cl">Supplier</span>&lt;<span class="cl">EditorCommand</span>&gt;) cmd::<span class="fn">copy</span>).<span class="fn">toList</span>();
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() { steps.<span class="fn">forEach</span>(s -> s.<span class="fn">get</span>().<span class="fn">execute</span>()); }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="kw">var</span> all = steps.<span class="fn">stream</span>().<span class="fn">map</span>(<span class="cl">Supplier</span>::<span class="fn">get</span>).<span class="fn">toList</span>();
+        <span class="kw">var</span> rev = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(all);
+        <span class="cl">Collections</span>.<span class="fn">reverse</span>(rev);
+        rev.<span class="fn">forEach</span>(<span class="cl">EditorCommand</span>::<span class="fn">undo</span>);
+    }
+
+    <span class="kw">public int</span> <span class="fn">size</span>() { <span class="kw">return</span> steps.<span class="fn">size</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() { <span class="kw">return</span> <span class="st">"Macro '"</span> + name + <span class="st">"' ("</span> + steps.<span class="fn">size</span>() + <span class="st">" steps)"</span>; }
+}
+
+<span class="cm">// Why fresh copies on replay (copy() method on each command)?
+// Original instances have state set during the first execution (e.g. deletedText).
+// Re-running execute() on them would use stale captured state.
+// Each replay should capture its own fresh state at replay time.
+// Add EditorCommand.copy() as a default method or abstract method. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S7 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Editor</span><span class="tag tag-blue">Solution 7 — TransactionalCommand</span></div><h3>Execute, catch failure, undo completed steps in reverse.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">TransactionalCommand.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">TransactionalCommand</span> <span class="kw">implements</span> <span class="cl">EditorCommand</span> {
+
+    <span class="kw">private final</span> <span class="cl">String</span>              label;
+    <span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">EditorCommand</span>&gt; commands;
+    <span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">EditorCommand</span>&gt; executed = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+
+    <span class="kw">public</span> <span class="fn">TransactionalCommand</span>(<span class="cl">String</span> label, <span class="cl">List</span>&lt;<span class="cl">EditorCommand</span>&gt; commands) {
+        <span class="kw">this</span>.label    = label;
+        <span class="kw">this</span>.commands = commands;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">execute</span>() {
+        executed.<span class="fn">clear</span>();
+        <span class="kw">for</span> (<span class="cl">EditorCommand</span> cmd : commands) {
+            <span class="kw">try</span> {
+                cmd.<span class="fn">execute</span>();
+                executed.<span class="fn">add</span>(cmd); <span class="cm">// only add AFTER successful execute</span>
+            } <span class="kw">catch</span> (<span class="cl">Exception</span> e) {
+                <span class="cm">// Rollback: undo all previously executed commands in reverse</span>
+                <span class="cl">Collections</span>.<span class="fn">reverse</span>(<span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(executed))
+                           .<span class="fn">forEach</span>(<span class="cl">EditorCommand</span>::<span class="fn">undo</span>);
+                executed.<span class="fn">clear</span>();
+                <span class="kw">throw new</span> <span class="cl">RuntimeException</span>(<span class="st">"Transaction failed, rolled back: "</span> + e.<span class="fn">getMessage</span>(), e);
+            }
+        }
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">undo</span>() {
+        <span class="kw">var</span> rev = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(executed);
+        <span class="cl">Collections</span>.<span class="fn">reverse</span>(rev);
+        rev.<span class="fn">forEach</span>(<span class="cl">EditorCommand</span>::<span class="fn">undo</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() { <span class="kw">return</span> label + <span class="st">" (transactional, "</span> + commands.<span class="fn">size</span>() + <span class="st">" ops)"</span>; }
+}
+
+<span class="cm">// This is ACID atomicity: either all commands apply, or none do.
+// The pattern is identical to database transactions:
+//   BEGIN TRANSACTION
+//   try { execute each statement }
+//   catch { ROLLBACK (undo completed statements) }
+//   finally { if ok: COMMIT (add to history) }
+//
+// Flyway uses this — each migration runs in a transaction.
+// Spring's @Transactional uses the same logic via AOP proxies.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S8 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">Architect</span><span class="tag tag-rose">Solution 8 — Crash Recovery Log</span></div><h3>Append-only command log, replay on startup.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">EditorEngine.java — write-ahead log</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">private static final</span> <span class="cl">String</span> LOG_FILE = <span class="st">"commands.log"</span>;
+<span class="kw">private</span> <span class="cl">ObjectOutputStream</span> logStream;
+
+<span class="kw">public void</span> <span class="fn">openLog</span>() <span class="kw">throws</span> <span class="cl">IOException</span> {
+    logStream = <span class="kw">new</span> <span class="cl">ObjectOutputStream</span>(
+        <span class="kw">new</span> <span class="cl">FileOutputStream</span>(LOG_FILE, <span class="kw">true</span>)); <span class="cm">// append mode</span>
+}
+
+<span class="kw">public void</span> <span class="fn">execute</span>(<span class="cl">EditorCommand</span> cmd) {
+    cmd.<span class="fn">execute</span>();
+    <span class="kw">try</span> {
+        <span class="kw">if</span> (logStream != <span class="kw">null</span>) {
+            logStream.<span class="fn">writeObject</span>(cmd);  <span class="cm">// persist before adding to history</span>
+            logStream.<span class="fn">flush</span>();           <span class="cm">// ensure written to disk</span>
+        }
+    } <span class="kw">catch</span> (<span class="cl">IOException</span> e) { <span class="cl">System</span>.err.<span class="fn">println</span>(<span class="st">"Log write failed: "</span> + e); }
+    <span class="cm">// ... history stack logic</span>
+}
+
+<span class="cm">// Startup recovery:</span>
+<span class="kw">public static</span> <span class="cl">EditorEngine</span> <span class="fn">recoverFromLog</span>(<span class="cl">TextBuffer</span> buf, <span class="cl">SelectionModel</span> sel)
+                                             <span class="kw">throws</span> <span class="cl">Exception</span> {
+    <span class="cl">File</span> log = <span class="kw">new</span> <span class="cl">File</span>(LOG_FILE);
+    <span class="cl">EditorEngine</span> engine = <span class="kw">new</span> <span class="cl">EditorEngine</span>();
+    <span class="kw">if</span> (!log.<span class="fn">exists</span>()) <span class="kw">return</span> engine;
+
+    <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[RECOVER] Replaying command log..."</span>);
+    <span class="kw">try</span> (<span class="kw">var</span> ois = <span class="kw">new</span> <span class="cl">ObjectInputStream</span>(<span class="kw">new</span> <span class="cl">FileInputStream</span>(log))) {
+        <span class="kw">while</span> (<span class="kw">true</span>) {
+            <span class="kw">try</span> {
+                <span class="cl">EditorCommand</span> cmd = (<span class="cl">EditorCommand</span>) ois.<span class="fn">readObject</span>();
+                cmd.<span class="fn">rebind</span>(buf, sel); <span class="cm">// re-wire to new receiver instances</span>
+                engine.<span class="fn">execute</span>(cmd);
+            } <span class="kw">catch</span> (<span class="cl">EOFException</span> eof) { <span class="kw">break</span>; }
+        }
+    }
+    <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[RECOVER] Done. "</span> + engine.history.<span class="fn">size</span>() + <span class="st">" commands replayed."</span>);
+    <span class="kw">return</span> engine;
+}
+
+<span class="cm">// On clean save: log.delete() — document file is ground truth. ✓
+// On crash: log exists → replay all commands from scratch. ✓
+// This is PostgreSQL's WAL (Write-Ahead Log) in miniature.
+// Every database uses this pattern for crash recovery.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S9 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">Architect</span><span class="tag tag-rose">Solution 9 — Operational Transformation</span></div><h3>Transform incoming commands against already-applied ones before replay.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">OperationalTransform.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">OperationalTransform</span> {
+
+    <span class="cm">/**
+     * Transform 'incoming' InsertCommand against an already-applied 'applied' InsertCommand.
+     * Returns a new InsertCommand adjusted to produce the correct result.
+     *
+     * Rule: if applied.position <= incoming.position, the text was inserted before
+     * the incoming position, so shift incoming right by applied.length.
+     */</span>
+    <span class="kw">public static</span> <span class="cl">InsertCommand</span> <span class="fn">transform</span>(
+            <span class="cl">InsertCommand</span> incoming,
+            <span class="cl">InsertCommand</span> applied,
+            <span class="cl">TextBuffer</span> buf, <span class="cl">SelectionModel</span> sel) {
+
+        <span class="kw">int</span> newPos = incoming.<span class="fn">getPosition</span>();
+        <span class="kw">if</span> (applied.<span class="fn">getPosition</span>() <= incoming.<span class="fn">getPosition</span>()) {
+            newPos += applied.<span class="fn">getText</span>().<span class="fn">length</span>(); <span class="cm">// shift right</span>
+        }
+        <span class="kw">return new</span> <span class="cl">InsertCommand</span>(buf, sel, newPos, incoming.<span class="fn">getText</span>());
+    }
+}
+
+<span class="cm">// Scenario:
+// Initial document: "world"
+//
+// User A (position 0): inserts "Hello " → sends InsertCommand(0, "Hello ")
+// User B (position 0): inserts "foo "   → applies locally first
+//
+// B's document after local apply: "foo world"
+// A's command arrives at B: InsertCommand(0, "Hello ")
+// Without OT: inserts at 0 → "Hello foo world"  ✗ (wrong)
+//
+// With OT: transform A's (pos=0) against B's (pos=0, len=4):
+//   applied.pos (0) <= incoming.pos (0) → newPos = 0 + 4 = 4
+//   Apply transformed: InsertCommand(4, "Hello ") → "foo Hello world" ✓
+//
+// Real OT handles Insert vs Delete, Delete vs Delete, Delete vs Insert.
+// CRDTs are a more sophisticated approach that avoids the need for
+// a central server to order transforms.
+// Google Docs used OT from 2006; Wave used OT; Figma uses CRDTs.
+// This is Command Pattern + network = distributed editor. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S10 -->
+    <div class="challenge boss"><div class="challenge-meta"><span class="diff diff-boss">BOSS</span><span class="tag tag-violet">Solution 10 — Database Migration Runner</span></div><h3>up() / down() = execute() / undo(). You've written this pattern before.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Migration.java + CreateTableMigration.java + MigrationRunner.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// The Command interface — renamed to match domain</span>
+<span class="kw">public interface</span> <span class="cl">Migration</span> {
+    <span class="kw">int</span>    <span class="fn">version</span>();    <span class="cm">// e.g. 1, 2, 3</span>
+    <span class="cl">String</span> <span class="fn">describe</span>();
+    <span class="kw">void</span>   <span class="fn">up</span>(<span class="cl">Database</span> db);    <span class="cm">// execute()</span>
+    <span class="kw">void</span>   <span class="fn">down</span>(<span class="cl">Database</span> db);  <span class="cm">// undo()</span>
+}
+
+<span class="kw">public class</span> <span class="cl">CreateUserTableMigration</span> <span class="kw">implements</span> <span class="cl">Migration</span> {
+    <span class="an">@Override</span> <span class="kw">public int</span> <span class="fn">version</span>()  { <span class="kw">return</span> <span class="nu">1</span>; }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">describe</span>() { <span class="kw">return</span> <span class="st">"Create users table"</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">up</span>(<span class="cl">Database</span> db) {
+        db.<span class="fn">execute</span>(<span class="st">"CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100))"</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">down</span>(<span class="cl">Database</span> db) {
+        db.<span class="fn">execute</span>(<span class="st">"DROP TABLE users"</span>);
+    }
+}
+
+<span class="cm">// The Invoker — exactly like EditorEngine</span>
+<span class="kw">public class</span> <span class="cl">MigrationRunner</span> {
+    <span class="kw">private final</span> <span class="cl">Database</span>       db;
+    <span class="kw">private final</span> <span class="cl">Deque</span>&lt;<span class="cl">Migration</span>&gt; applied = <span class="kw">new</span> <span class="cl">ArrayDeque</span>&lt;&gt;();
+
+    <span class="kw">public</span> <span class="fn">MigrationRunner</span>(<span class="cl">Database</span> db) { <span class="kw">this</span>.db = db; }
+
+    <span class="kw">public void</span> <span class="fn">migrate</span>(<span class="cl">Migration</span> m) {
+        m.<span class="fn">up</span>(db);
+        applied.<span class="fn">push</span>(m);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[MIGRATE] V"</span> + m.<span class="fn">version</span>() + <span class="st">": "</span> + m.<span class="fn">describe</span>());
+    }
+
+    <span class="kw">public void</span> <span class="fn">rollback</span>() {
+        <span class="kw">if</span> (applied.<span class="fn">isEmpty</span>()) { <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Nothing to rollback"</span>); <span class="kw">return</span>; }
+        <span class="cl">Migration</span> m = applied.<span class="fn">pop</span>();
+        m.<span class="fn">down</span>(db);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[ROLLBACK] V"</span> + m.<span class="fn">version</span>() + <span class="st">": "</span> + m.<span class="fn">describe</span>());
+    }
+
+    <span class="kw">public void</span> <span class="fn">rollbackTo</span>(<span class="kw">int</span> targetVersion) {
+        <span class="kw">while</span> (!applied.<span class="fn">isEmpty</span>() && applied.<span class="fn">peek</span>().<span class="fn">version</span>() > targetVersion) {
+            <span class="fn">rollback</span>();
+        }
+    }
+}
+
+<span class="cm">// Mapping to real tools:
+//
+// OUR ABSTRACTION              FLYWAY / LIQUIBASE EQUIVALENT
+// ──────────────────────────────────────────────────────────────────
+// Migration interface          Flyway JavaMigration interface
+// up(db)                       V1__create_users.sql  (versioned migration)
+// down(db)                     U1__create_users.sql  (undo migration)
+// MigrationRunner.migrate()    flyway.migrate()
+// MigrationRunner.rollback()   flyway.undo()
+// applied Deque                schema_version table in the DB
+// version()                    Flyway's version number in filename
+//
+// Liquibase's changeSet with rollback tag is XML-serialised Migration:
+// &lt;changeSet&gt;&lt;createTable.../&gt;&lt;rollback&gt;&lt;dropTable.../&gt;&lt;/rollback&gt;&lt;/changeSet&gt;
+//
+// You have been writing Command Pattern every time you wrote a migration. ✓</span></code></pre>
+    </div>
+
+    <div class="callout callout-violet">
+      <div class="callout-title">Real-World Connections</div>
+      <p>
+        <strong style="color:var(--violet)">IntelliJ IDEA:</strong> The entire undo system is <code>com.intellij.openapi.command.CommandProcessor</code>. Every editor action — typing, refactoring, formatting — is wrapped in a <code>Command</code>. Undo merges adjacent commands into groups (coalescing). The API is public and plugins use it directly.<br><br>
+        <strong style="color:var(--violet)">VSCode:</strong> <code>IUndoRedoElement</code> is the command interface. The undo stack is per-resource (per file). Undo groups (<code>UndoRedoGroup</code>) are BatchCommands. Language extensions contribute their own undoable edits via the TextEdit API.<br><br>
+        <strong style="color:var(--violet)">Google Docs / collaborative editors:</strong> Each keystroke is a serialised Command (InsertOperation, DeleteOperation). Operational Transformation (Challenge 9) ensures commands from different users commute correctly. The document is the accumulated result of replaying all commands from an empty buffer.<br><br>
+        <strong style="color:var(--violet)">PostgreSQL WAL (Write-Ahead Log):</strong> Every database write is first written as a command record to the WAL before modifying data pages. On crash recovery, the WAL is replayed from the last checkpoint. This is Challenge 8 at petabyte scale.<br><br>
+        <strong style="color:var(--violet)">Flyway / Liquibase:</strong> Database migrations are Commands with <code>up()</code> and <code>down()</code>. The migration history table is the history stack. <code>flyway.undo()</code> pops from the stack and calls <code>down()</code>. Challenge 10 exactly.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    event.target.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>

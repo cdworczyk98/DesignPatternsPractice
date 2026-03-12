@@ -1,4 +1,4 @@
-package Observer.WeatheStation;
+package Observer.WeatheStation.Simple;
 
 public interface Subject {
     void registerObserver(Observer o);

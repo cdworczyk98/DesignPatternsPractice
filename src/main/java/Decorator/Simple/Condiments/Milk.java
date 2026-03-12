@@ -1,6 +1,6 @@
-package Decorator.CoffeeShop.Condiments;
+package Decorator.Simple.Condiments;
 
-import Decorator.CoffeeShop.Beverages.Beverage;
+import Decorator.Simple.Beverages.Beverage;
 
 public class Milk extends CondimentDecorator {
 

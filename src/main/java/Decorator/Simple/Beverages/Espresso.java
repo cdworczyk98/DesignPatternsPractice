@@ -1,4 +1,4 @@
-package Decorator.CoffeeShop.Beverages;
+package Decorator.Simple.Beverages;
 
 public class Espresso extends Beverage {
 

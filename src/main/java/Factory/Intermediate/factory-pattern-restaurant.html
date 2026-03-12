@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Factory Pattern — Restaurant Food Ordering System</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0c0a07;
+    --surface:  #131008;
+    --surface2: #1a1508;
+    --surface3: #201a0a;
+    --border:   #2a2210;
+    --border2:  #352c14;
+    --amber:    #e8a820;
+    --amber2:   #f5c842;
+    --rust:     #c94f2a;
+    --sage:     #5a8a5a;
+    --cream:    #f0e6cc;
+    --blue:     #4a90d9;
+    --purple:   #9b6ef0;
+    --text:     #f0e6cc;
+    --text-dim: #4a3e28;
+    --text-mid: #8a7a5a;
+    --code-bg:  #080604;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content:'';
+    position:fixed; inset:0;
+    background:
+      radial-gradient(ellipse 55% 35% at 15% 15%, rgba(232,168,32,0.05) 0%, transparent 60%),
+      radial-gradient(ellipse 45% 35% at 85% 85%, rgba(201,79,42,0.04) 0%, transparent 60%);
+    pointer-events:none; z-index:0;
+  }
+
+  .container { max-width:1000px; margin:0 auto; padding:0 28px 120px; position:relative; z-index:1; }
+
+  /* ── Header ── */
+  header { padding:64px 0 48px; border-bottom:1px solid var(--border); margin-bottom:44px; }
+
+  .eyebrow {
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px; letter-spacing:0.3em; text-transform:uppercase;
+    color:var(--amber); margin-bottom:18px;
+  }
+
+  h1 {
+    font-family:'Playfair Display', serif;
+    font-size:clamp(38px, 6.5vw, 76px);
+    font-weight:700; line-height:1.0; letter-spacing:-0.01em;
+    color:var(--cream);
+  }
+  h1 .hl  { color:var(--amber); font-style:italic; }
+  h1 .dim { color:var(--text-dim); font-weight:400; }
+
+  .header-meta { margin-top:22px; display:flex; gap:12px; flex-wrap:wrap; }
+  .meta-pill {
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+    padding:4px 12px; border-radius:20px;
+    border:1px solid var(--border2); color:var(--text-mid);
+  }
+  .meta-pill.hl { border-color:var(--amber); color:var(--amber); }
+
+  /* ── Tabs ── */
+  .tabs {
+    display:flex; gap:2px; margin-bottom:40px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; padding:4px; overflow-x:auto; scrollbar-width:none;
+  }
+  .tab-btn {
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px; letter-spacing:0.05em;
+    padding:9px 16px; border:none; background:none;
+    color:var(--text-dim); cursor:pointer; white-space:nowrap;
+    border-radius:6px; transition:all 0.18s; flex-shrink:0;
+  }
+  .tab-btn.active { background:var(--surface3); color:var(--amber); border:1px solid var(--border2); }
+  .tab-btn:hover:not(.active) { color:var(--text-mid); background:var(--surface2); }
+
+  /* ── Panels ── */
+  .panel { display:none; }
+  .panel.active { display:block; animation:fadeUp 0.25s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+
+  /* ── Typography ── */
+  .section-label {
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px; letter-spacing:0.3em; text-transform:uppercase;
+    color:var(--text-dim); margin-bottom:10px;
+  }
+
+  h2 {
+    font-family:'Playfair Display', serif;
+    font-size:28px; font-weight:700; letter-spacing:-0.01em;
+    color:var(--cream); margin-bottom:12px;
+  }
+
+  h3 {
+    font-family:'Playfair Display', serif;
+    font-size:16px; font-weight:600;
+    color:var(--cream); margin-bottom:8px;
+  }
+
+  p {
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px; line-height:1.85;
+    color:var(--text-mid); margin-bottom:14px;
+  }
+
+  strong { color:var(--text); font-weight:600; }
+  code { font-family:'JetBrains Mono', monospace; color:var(--amber); font-size:11px; }
+
+  /* ── Grids ── */
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:16px; }
+  .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:16px; }
+  @media(max-width:680px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
+
+  /* ── Cards ── */
+  .card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; padding:18px 20px; margin-bottom:14px;
+  }
+  .card-accent-left {
+    border-left:3px solid var(--amber);
+  }
+
+  /* ── Menu board ── */
+  .menu-board {
+    background:var(--code-bg); border:1px solid var(--border);
+    border-radius:8px; overflow:hidden; margin-bottom:16px;
+  }
+  .menu-header {
+    background:var(--surface2); border-bottom:1px solid var(--border);
+    padding:12px 20px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .menu-title { font-family:'Playfair Display', serif; font-size:14px; color:var(--amber); }
+  .menu-sub   { font-family:'JetBrains Mono', monospace; font-size:9px; color:var(--text-dim); letter-spacing:0.15em; text-transform:uppercase; }
+  .menu-row {
+    display:flex; justify-content:space-between; align-items:baseline;
+    padding:8px 20px; border-bottom:1px solid var(--border);
+    font-family:'JetBrains Mono', monospace; font-size:12px;
+  }
+  .menu-row:last-child { border-bottom:none; }
+  .menu-item { color:var(--text); }
+  .menu-desc { color:var(--text-dim); font-size:10px; margin-top:2px; }
+  .menu-price{ color:var(--amber); }
+
+  /* ── Tags ── */
+  .tag {
+    display:inline-block;
+    font-family:'JetBrains Mono', monospace;
+    font-size:9px; letter-spacing:0.12em; text-transform:uppercase;
+    padding:2px 8px; border-radius:4px; margin-right:6px; margin-bottom:8px;
+  }
+  .tag-amber  { background:rgba(232,168,32,0.12);  color:var(--amber);  border:1px solid rgba(232,168,32,0.25); }
+  .tag-rust   { background:rgba(201,79,42,0.12);   color:var(--rust);   border:1px solid rgba(201,79,42,0.25); }
+  .tag-sage   { background:rgba(90,138,90,0.12);   color:var(--sage);   border:1px solid rgba(90,138,90,0.25); }
+  .tag-blue   { background:rgba(74,144,217,0.12);  color:var(--blue);   border:1px solid rgba(74,144,217,0.25); }
+  .tag-purple { background:rgba(155,110,240,0.12); color:var(--purple); border:1px solid rgba(155,110,240,0.25); }
+
+  /* ── Code blocks ── */
+  .code-block {
+    background:var(--code-bg); border:1px solid var(--border);
+    border-radius:8px; overflow:hidden; margin:12px 0;
+    font-family:'JetBrains Mono', monospace; font-size:12px; line-height:1.72;
+  }
+  .code-header {
+    background:#0a0804; border-bottom:1px solid var(--border);
+    padding:8px 16px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .code-filename { font-size:11px; color:var(--amber); }
+  .code-lang     { font-size:9px; letter-spacing:0.18em; text-transform:uppercase; color:var(--text-dim); }
+  pre { padding:18px 20px; overflow-x:auto; scrollbar-width:thin; }
+
+  .kw{color:#c084fc;} .cl{color:#7dd3fc;} .fn{color:#86efac;}
+  .st{color:#fde68a;} .cm{color:#1e1a10;} .nu{color:#fb923c;}
+  .an{color:#f9a8d4;} .in{font-style:italic;color:#c084fc;}
+
+  /* ── Callouts ── */
+  .callout { border-left:2px solid; padding:12px 16px; border-radius:0 8px 8px 0; margin:12px 0; }
+  .callout-amber  { border-color:var(--amber);  background:rgba(232,168,32,0.04); }
+  .callout-rust   { border-color:var(--rust);   background:rgba(201,79,42,0.04); }
+  .callout-sage   { border-color:var(--sage);   background:rgba(90,138,90,0.04); }
+  .callout-blue   { border-color:var(--blue);   background:rgba(74,144,217,0.04); }
+  .callout-purple { border-color:var(--purple); background:rgba(155,110,240,0.04); }
+  .callout-title {
+    font-family:'JetBrains Mono', monospace;
+    font-size:9px; letter-spacing:0.25em; text-transform:uppercase; margin-bottom:6px;
+  }
+  .callout-amber  .callout-title { color:var(--amber); }
+  .callout-rust   .callout-title { color:var(--rust); }
+  .callout-sage   .callout-title { color:var(--sage); }
+  .callout-blue   .callout-title { color:var(--blue); }
+  .callout-purple .callout-title { color:var(--purple); }
+  .callout p { margin:0; }
+
+  hr.div { border:none; border-top:1px solid var(--border); margin:28px 0; }
+
+  /* ── Diagrams ── */
+  .diagram-wrap {
+    background:var(--code-bg); border:1px solid var(--border);
+    border-radius:8px; padding:28px; margin:14px 0; overflow-x:auto;
+  }
+  .diagram-wrap svg { display:block; margin:0 auto; }
+
+  /* ── Variant grid ── */
+  .variant-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin:14px 0; }
+  @media(max-width:720px){ .variant-grid{ grid-template-columns:1fr; } }
+  .variant {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; padding:16px 18px;
+  }
+  .variant-title { font-family:'Playfair Display', serif; font-size:15px; font-weight:600; margin-bottom:4px; }
+  .variant-sub   { font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--text-dim); margin-bottom:10px; }
+
+  /* ── Tiers ── */
+  .tier { border:1px solid var(--border); border-radius:10px; margin-bottom:32px; overflow:hidden; }
+  .tier-header { padding:18px 24px; display:flex; align-items:center; gap:16px; border-bottom:1px solid var(--border); }
+  .tier-icon  { font-size:26px; }
+  .tier-title { font-family:'Playfair Display', serif; font-size:20px; font-weight:700; }
+  .tier-sub   { font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--text-dim); margin-top:2px; }
+  .tier-body  { padding:22px 24px; background:var(--surface); }
+
+  .tier-easy   .tier-header { background:rgba(90,138,90,0.06); }
+  .tier-easy   .tier-title  { color:var(--sage); }
+  .tier-medium .tier-header { background:rgba(232,168,32,0.06); }
+  .tier-medium .tier-title  { color:var(--amber); }
+  .tier-hard   .tier-header { background:rgba(201,79,42,0.06); }
+  .tier-hard   .tier-title  { color:var(--rust); }
+
+  /* ── Challenges ── */
+  .challenge {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; padding:16px 20px; margin-bottom:12px;
+    position:relative; overflow:hidden;
+  }
+  .challenge::before {
+    content:''; position:absolute; top:0; left:0; bottom:0; width:3px; border-radius:3px 0 0 3px;
+  }
+  .challenge.easy::before   { background:var(--sage); }
+  .challenge.medium::before { background:var(--amber); }
+  .challenge.hard::before   { background:var(--rust); }
+  .challenge.boss::before   { background:var(--purple); }
+  .challenge-meta { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .diff {
+    font-family:'JetBrains Mono', monospace;
+    font-size:9px; letter-spacing:0.15em; text-transform:uppercase;
+    padding:2px 8px; border-radius:4px;
+  }
+  .diff-easy   { background:rgba(90,138,90,0.12);   color:var(--sage); }
+  .diff-medium { background:rgba(232,168,32,0.12);  color:var(--amber); }
+  .diff-hard   { background:rgba(201,79,42,0.12);   color:var(--rust); }
+  .diff-boss   { background:rgba(155,110,240,0.12); color:var(--purple); }
+
+  /* Steps */
+  ol.steps { list-style:none; counter-reset:s; }
+  ol.steps li {
+    counter-increment:s; display:flex; gap:14px;
+    padding:13px 0; border-bottom:1px solid var(--border);
+    font-family:'JetBrains Mono', monospace; font-size:12px;
+    color:var(--text-mid); line-height:1.8;
+  }
+  ol.steps li:last-child { border-bottom:none; }
+  ol.steps li::before {
+    content:counter(s,decimal-leading-zero);
+    font-size:10px; color:var(--amber); min-width:24px; padding-top:2px; flex-shrink:0;
+  }
+  ol.steps li strong { color:var(--text); display:block; margin-bottom:4px; }
+
+  /* ── Order receipt ── */
+  .receipt {
+    background:var(--code-bg); border:1px solid var(--border); border-radius:8px;
+    padding:16px 20px; font-family:'JetBrains Mono', monospace; font-size:11px;
+    line-height:2.0; margin-bottom:14px;
+  }
+  .r-head { color:var(--amber); font-size:12px; border-bottom:1px solid var(--border); padding-bottom:8px; margin-bottom:8px; }
+  .r-line { display:flex; justify-content:space-between; color:var(--text-mid); }
+  .r-line strong { color:var(--text); }
+  .r-total { display:flex; justify-content:space-between; border-top:1px solid var(--border); padding-top:8px; margin-top:8px; color:var(--amber); font-weight:600; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="eyebrow">// design_patterns · java_workshop · v7</div>
+    <h1>The <span class="hl">Factory</span> Pattern<br><span class="dim">Restaurant Food Ordering</span></h1>
+    <div class="header-meta">
+      <span class="meta-pill hl">Intermediate baseline</span>
+      <span class="meta-pill">Static · Method · Abstract</span>
+      <span class="meta-pill">GoF Creational</span>
+      <span class="meta-pill">10 challenges</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('baseline')">① Baseline</button>
+    <button class="tab-btn" onclick="switchTab('problem')">② The Problem</button>
+    <button class="tab-btn" onclick="switchTab('deep')">③ Deep Dive</button>
+    <button class="tab-btn" onclick="switchTab('refactor')">④ Refactored</button>
+    <button class="tab-btn" onclick="switchTab('challenges')">⑤ Challenges</button>
+    <button class="tab-btn" onclick="switchTab('solutions')">⑥ Solutions</button>
+  </nav>
+
+  <!-- ══════════════════════════════════ PANEL 1 ══ -->
+  <div id="panel-baseline" class="panel active">
+    <div class="section-label">// step_01</div>
+    <h2>The Baseline App</h2>
+    <p>A restaurant ordering system. Customers can order from three menus: <strong>Italian</strong>, <strong>Japanese</strong>, and <strong>Vegan</strong>. Each dish has a name, ingredients, preparation steps, and a price. An <code>OrderProcessor</code> takes an order and routes it to the kitchen.</p>
+
+    <div class="grid-3">
+      <div class="menu-board">
+        <div class="menu-header"><span class="menu-title">🍝 Italian</span><span class="menu-sub">Trattoria</span></div>
+        <div class="menu-row"><div><div class="menu-item">Margherita Pizza</div><div class="menu-desc">tomato, mozzarella, basil</div></div><span class="menu-price">£12</span></div>
+        <div class="menu-row"><div><div class="menu-item">Tagliatelle Bolognese</div><div class="menu-desc">egg pasta, beef ragù</div></div><span class="menu-price">£14</span></div>
+        <div class="menu-row"><div><div class="menu-item">Tiramisu</div><div class="menu-desc">mascarpone, espresso</div></div><span class="menu-price">£7</span></div>
+      </div>
+      <div class="menu-board">
+        <div class="menu-header"><span class="menu-title">🍱 Japanese</span><span class="menu-sub">Omakase</span></div>
+        <div class="menu-row"><div><div class="menu-item">Tonkotsu Ramen</div><div class="menu-desc">pork broth, chashu</div></div><span class="menu-price">£13</span></div>
+        <div class="menu-row"><div><div class="menu-item">Salmon Sashimi</div><div class="menu-desc">fresh salmon, wasabi</div></div><span class="menu-price">£15</span></div>
+        <div class="menu-row"><div><div class="menu-item">Mochi Ice Cream</div><div class="menu-desc">rice dough, matcha</div></div><span class="menu-price">£6</span></div>
+      </div>
+      <div class="menu-board">
+        <div class="menu-header"><span class="menu-title">🌿 Vegan</span><span class="menu-sub">Garden</span></div>
+        <div class="menu-row"><div><div class="menu-item">Buddha Bowl</div><div class="menu-desc">quinoa, roasted veg</div></div><span class="menu-price">£11</span></div>
+        <div class="menu-row"><div><div class="menu-item">Jackfruit Burger</div><div class="menu-desc">jackfruit, brioche bun</div></div><span class="menu-price">£13</span></div>
+        <div class="menu-row"><div><div class="menu-item">Chia Pudding</div><div class="menu-desc">chia, oat milk, berries</div></div><span class="menu-price">£6</span></div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Dish.java</span><span class="code-lang">Java — Baseline</span></div>
+      <pre><code><span class="kw">public abstract class</span> <span class="cl">Dish</span> {
+    <span class="kw">protected</span> <span class="cl">String</span>       name;
+    <span class="kw">protected</span> <span class="cl">List</span>&lt;<span class="cl">String</span>&gt; ingredients;
+    <span class="kw">protected double</span>       price;
+
+    <span class="kw">public abstract void</span> <span class="fn">prepare</span>();
+    <span class="kw">public abstract void</span> <span class="fn">plate</span>();
+
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getName</span>()          { <span class="kw">return</span> name; }
+    <span class="kw">public double</span> <span class="fn">getPrice</span>()         { <span class="kw">return</span> price; }
+    <span class="kw">public</span> <span class="cl">List</span>&lt;<span class="cl">String</span>&gt; <span class="fn">getIngredients</span>() { <span class="kw">return</span> ingredients; }
+
+    <span class="kw">public void</span> <span class="fn">printReceipt</span>() {
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"  %-28s £%.2f%n"</span>, name, price);
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">MargheritaPizza.java  (one of nine concrete dishes)</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">MargheritaPizza</span> <span class="kw">extends</span> <span class="cl">Dish</span> {
+
+    <span class="kw">public</span> <span class="fn">MargheritaPizza</span>() {
+        name        = <span class="st">"Margherita Pizza"</span>;
+        price       = <span class="nu">12.00</span>;
+        ingredients = <span class="cl">List</span>.<span class="fn">of</span>(<span class="st">"tomato sauce"</span>, <span class="st">"mozzarella"</span>, <span class="st">"fresh basil"</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">prepare</span>() {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  → Stretching dough, spreading sauce, adding toppings"</span>);
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  → Baking at 280°C for 9 minutes"</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">plate</span>() {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  → Slicing, adding fresh basil, drizzle of olive oil"</span>);
+    }
+}
+
+<span class="cm">// TonkotsuRamen.java, SalmonSashimi.java, BuddhaBowl.java, etc.
+// — all follow the same structure, 9 classes total</span></code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">OrderProcessor.java — the creation problem lives here</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">OrderProcessor</span> {
+
+    <span class="kw">public</span> <span class="cl">Dish</span> <span class="fn">processOrder</span>(<span class="cl">String</span> cuisine, <span class="cl">String</span> dishName) {
+        <span class="cl">Dish</span> dish;
+
+        <span class="cm">// Creation logic directly in the processor — this is the problem</span>
+        <span class="kw">if</span> (cuisine.<span class="fn">equals</span>(<span class="st">"italian"</span>)) {
+            <span class="kw">switch</span> (dishName) {
+                <span class="kw">case</span> <span class="st">"pizza"</span>:      dish = <span class="kw">new</span> <span class="cl">MargheritaPizza</span>();    <span class="kw">break</span>;
+                <span class="kw">case</span> <span class="st">"pasta"</span>:      dish = <span class="kw">new</span> <span class="cl">TagliatelleRagu</span>();     <span class="kw">break</span>;
+                <span class="kw">case</span> <span class="st">"dessert"</span>:    dish = <span class="kw">new</span> <span class="cl">Tiramisu</span>();            <span class="kw">break</span>;
+                <span class="kw">default</span>: <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Unknown dish"</span>);
+            }
+        } <span class="kw">else if</span> (cuisine.<span class="fn">equals</span>(<span class="st">"japanese"</span>)) {
+            <span class="kw">switch</span> (dishName) {
+                <span class="kw">case</span> <span class="st">"ramen"</span>:     dish = <span class="kw">new</span> <span class="cl">TonkotsuRamen</span>();      <span class="kw">break</span>;
+                <span class="kw">case</span> <span class="st">"sashimi"</span>:   dish = <span class="kw">new</span> <span class="cl">SalmonSashimi</span>();     <span class="kw">break</span>;
+                <span class="kw">case</span> <span class="st">"dessert"</span>:   dish = <span class="kw">new</span> <span class="cl">MochiIceCream</span>();     <span class="kw">break</span>;
+                <span class="kw">default</span>: <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Unknown dish"</span>);
+            }
+        } <span class="kw">else if</span> (cuisine.<span class="fn">equals</span>(<span class="st">"vegan"</span>)) {
+            <span class="kw">switch</span> (dishName) {
+                <span class="kw">case</span> <span class="st">"bowl"</span>:    dish = <span class="kw">new</span> <span class="cl">BuddhaBowl</span>();        <span class="kw">break</span>;
+                <span class="kw">case</span> <span class="st">"burger"</span>:  dish = <span class="kw">new</span> <span class="cl">JackfruitBurger</span>();   <span class="kw">break</span>;
+                <span class="kw">case</span> <span class="st">"dessert"</span>: dish = <span class="kw">new</span> <span class="cl">ChiaPudding</span>();      <span class="kw">break</span>;
+                <span class="kw">default</span>: <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Unknown dish"</span>);
+            }
+        } <span class="kw">else</span> {
+            <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Unknown cuisine: "</span> + cuisine);
+        }
+
+        dish.<span class="fn">prepare</span>();
+        dish.<span class="fn">plate</span>();
+        <span class="kw">return</span> dish;
+    }
+}</code></pre>
+    </div>
+
+    <div class="callout callout-amber">
+      <div class="callout-title">Works — For Now</div>
+      <p>With nine dishes across three cuisines it already feels crowded. Adding a fourth cuisine (say, Mexican) means editing <code>OrderProcessor</code> — a class that should only process orders, not know how to build every dish. Click ② to see exactly what breaks.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ PANEL 2 ══ -->
+  <div id="panel-problem" class="panel">
+    <div class="section-label">// step_02</div>
+    <h2>New Requirements That Break It</h2>
+    <p>The restaurant group expands. A Mexican kitchen opens next door. A premium Tasting Menu is added with custom creation logic per dish. A third-party delivery app needs to order dishes by ID string from a config file. None of these fit the current design without major surgery.</p>
+
+    <div class="callout callout-rust">
+      <div class="callout-title">New Requirements</div>
+      <p>① <strong>Mexican kitchen</strong> — add Tacos, Guacamole, Churros. ② <strong>Tasting Menu</strong> — dishes need custom pairing logic and wine suggestions (different creation behaviour per restaurant). ③ <strong>Config-driven ordering</strong> — a delivery app sends <code>"italian:pizza"</code> as a string; the system must resolve it without a giant switch. ④ <strong>Test isolation</strong> — unit tests for <code>OrderProcessor</code> must not instantiate real dishes (too expensive, hits a real DB).</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">❌ Adding Mexican cuisine — requires editing OrderProcessor</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Every new cuisine requires opening OrderProcessor and adding an else-if.
+// This is a textbook Open/Closed violation.
+// The class that PROCESSES orders should not need to change when we ADD a cuisine.</span>
+
+<span class="kw">public</span> <span class="cl">Dish</span> <span class="fn">processOrder</span>(<span class="cl">String</span> cuisine, <span class="cl">String</span> dishName) {
+    <span class="kw">if</span>      (cuisine.<span class="fn">equals</span>(<span class="st">"italian"</span>))  { <span class="cm">/* ... */</span> }
+    <span class="kw">else if</span> (cuisine.<span class="fn">equals</span>(<span class="st">"japanese"</span>)) { <span class="cm">/* ... */</span> }
+    <span class="kw">else if</span> (cuisine.<span class="fn">equals</span>(<span class="st">"vegan"</span>))    { <span class="cm">/* ... */</span> }
+    <span class="kw">else if</span> (cuisine.<span class="fn">equals</span>(<span class="st">"mexican"</span>))  { <span class="cm">// ← Edit #4</span>
+        <span class="kw">switch</span> (dishName) {
+            <span class="kw">case</span> <span class="st">"tacos"</span>:      dish = <span class="kw">new</span> <span class="cl">BeefTacos</span>();     <span class="kw">break</span>;
+            <span class="kw">case</span> <span class="st">"guacamole"</span>:  dish = <span class="kw">new</span> <span class="cl">Guacamole</span>();     <span class="kw">break</span>;
+            <span class="kw">case</span> <span class="st">"dessert"</span>:    dish = <span class="kw">new</span> <span class="cl">Churros</span>();       <span class="kw">break</span>;
+        }
+    }
+    <span class="cm">// Edit #5, Edit #6... every expansion touches this file</span>
+}
+
+<span class="cm">// Problems compound:
+// 1. Testing OrderProcessor requires all 12+ concrete Dish classes to exist
+// 2. Different restaurants (chains) want different creation rules for the same dish type
+//    e.g. the Shoreditch branch makes a "premium" TonkotsuRamen different from the City branch
+// 3. The string-to-class mapping (config-driven ordering) has to live somewhere central
+//    but currently it's scattered across nested switch statements
+// 4. Every developer touching this file risks breaking other cuisines</span></code></pre>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <span class="tag tag-rust">Violation</span>
+        <h3>Open/Closed Principle</h3>
+        <p>Adding any new cuisine, new dish, or new restaurant branch requires editing <code>OrderProcessor</code>. A class that grows every time the menu expands is not closed for modification.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-rust">Violation</span>
+        <h3>Single Responsibility</h3>
+        <p><code>OrderProcessor</code> knows how to process orders <em>and</em> knows which concrete class maps to every cuisine/dish combination. Two jobs, one class, guaranteed coupling.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-rust">Violation</span>
+        <h3>No Branch Variation</h3>
+        <p>The Shoreditch branch makes dishes differently from the City branch. The current design has no way to vary creation logic per location without duplicating the entire processor.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-rust">Violation</span>
+        <h3>Untestable in Isolation</h3>
+        <p>To unit-test order processing logic, you must instantiate real dishes. You can't inject mock dishes without restructuring the entire creation chain.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-amber">
+      <div class="callout-title">The Core Insight</div>
+      <p>Creation logic and usage logic are two separate concerns. <strong>Separate the "what to build" from the "how to use it".</strong> A factory knows how to construct objects. The processor just asks the factory for a dish — it never calls <code>new</code> directly. New cuisines mean new factories, not edits to the processor.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ PANEL 3 ══ -->
+  <div id="panel-deep" class="panel">
+    <div class="section-label">// step_03</div>
+    <h2>Deep Dive</h2>
+    <p>The Factory Pattern has three distinct forms. Knowing when to use each — and understanding what problem each solves — is the real skill. All three appear in production Java code daily.</p>
+
+    <!-- Diagram 1: Three variants overview -->
+    <h3>Diagram 1 — Three Factory Forms</h3>
+    <p>Think of the three forms as a spectrum from simplest to most powerful. Static Factory centralises creation. Factory Method lets subclasses decide. Abstract Factory ensures families of objects are compatible.</p>
+    <div class="diagram-wrap">
+      <svg width="640" height="220" viewBox="0 0 640 220" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="11">
+        <defs>
+          <marker id="f1-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#e8a820"/>
+          </marker>
+        </defs>
+
+        <!-- Form 1: Static Factory -->
+        <rect x="10"  y="10" width="190" height="100" rx="6" fill="#131008" stroke="#e8a820" stroke-width="1.5"/>
+        <text x="105" y="32"  text-anchor="middle" fill="#e8a820" font-size="10" letter-spacing="0.1em">STATIC FACTORY</text>
+        <line x1="10" y1="40" x2="200" y2="40" stroke="#2a2210"/>
+        <text x="105" y="56"  text-anchor="middle" fill="#f0e6cc" font-size="11" font-weight="600">DishFactory</text>
+        <text x="105" y="72"  text-anchor="middle" fill="#4a3e28" font-size="10">static create(cuisine, name)</text>
+        <text x="105" y="88"  text-anchor="middle" fill="#4a3e28" font-size="10">→ Dish</text>
+        <text x="105" y="104" text-anchor="middle" fill="#8a7a5a" font-size="9" font-style="italic">Centralised switch/registry</text>
+
+        <!-- Arrow down -->
+        <line x1="105" y1="110" x2="105" y2="142" stroke="#e8a820" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#f1-arr)"/>
+        <text x="105" y="158" text-anchor="middle" fill="#4a3e28" font-size="9">Client calls factory</text>
+        <text x="105" y="170" text-anchor="middle" fill="#4a3e28" font-size="9">with type string</text>
+
+        <!-- Form 2: Factory Method -->
+        <rect x="226" y="10" width="190" height="100" rx="6" fill="#131008" stroke="#5a8a5a" stroke-width="1.5"/>
+        <text x="321" y="32"  text-anchor="middle" fill="#5a8a5a" font-size="10" letter-spacing="0.1em">FACTORY METHOD</text>
+        <line x1="226" y1="40" x2="416" y2="40" stroke="#2a2210"/>
+        <text x="321" y="56"  text-anchor="middle" fill="#f0e6cc" font-size="11" font-weight="600">Restaurant (abstract)</text>
+        <text x="321" y="72"  text-anchor="middle" fill="#4a3e28" font-size="10">abstract createDish(name)</text>
+        <text x="321" y="88"  text-anchor="middle" fill="#4a3e28" font-size="10">orderDish(name) { ... }</text>
+        <text x="321" y="104" text-anchor="middle" fill="#8a7a5a" font-size="9" font-style="italic">Subclass decides what to build</text>
+
+        <!-- Subclasses -->
+        <rect x="226" y="150" width="85" height="30" rx="4" fill="#131008" stroke="#2a2210"/>
+        <text x="268"  y="169" text-anchor="middle" fill="#f0e6cc" font-size="10">ItalianRest.</text>
+        <rect x="321"  y="150" width="85" height="30" rx="4" fill="#131008" stroke="#2a2210"/>
+        <text x="364"  y="169" text-anchor="middle" fill="#f0e6cc" font-size="10">JapaneseRest.</text>
+
+        <line x1="268" y1="110" x2="268" y2="148" stroke="#5a8a5a" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#f1-arr)"/>
+        <line x1="364" y1="110" x2="364" y2="148" stroke="#5a8a5a" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#f1-arr)"/>
+
+        <!-- Form 3: Abstract Factory -->
+        <rect x="442" y="10" width="190" height="100" rx="6" fill="#131008" stroke="#4a90d9" stroke-width="1.5"/>
+        <text x="537" y="32"  text-anchor="middle" fill="#4a90d9" font-size="10" letter-spacing="0.1em">ABSTRACT FACTORY</text>
+        <line x1="442" y1="40" x2="632" y2="40" stroke="#2a2210"/>
+        <text x="537" y="56"  text-anchor="middle" fill="#f0e6cc" font-size="11" font-weight="600">KitchenFactory</text>
+        <text x="537" y="72"  text-anchor="middle" fill="#4a3e28" font-size="10">createStarter()</text>
+        <text x="537" y="88"  text-anchor="middle" fill="#4a3e28" font-size="10">createMain() / createDessert()</text>
+        <text x="537" y="104" text-anchor="middle" fill="#8a7a5a" font-size="9" font-style="italic">Family of compatible objects</text>
+
+        <!-- Implementations -->
+        <rect x="442" y="150" width="85" height="30" rx="4" fill="#131008" stroke="#2a2210"/>
+        <text x="484"  y="169" text-anchor="middle" fill="#f0e6cc" font-size="10">ItalianKitchen</text>
+        <rect x="539"  y="150" width="85" height="30" rx="4" fill="#131008" stroke="#2a2210"/>
+        <text x="581"  y="169" text-anchor="middle" fill="#f0e6cc" font-size="10">JapaneseKitchen</text>
+
+        <line x1="484" y1="110" x2="484" y2="148" stroke="#4a90d9" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#f1-arr)"/>
+        <line x1="581" y1="110" x2="581" y2="148" stroke="#4a90d9" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#f1-arr)"/>
+
+        <!-- Labels at bottom -->
+        <text x="105" y="210" text-anchor="middle" fill="#e8a820" font-size="9" font-weight="600">Use when: type known at runtime</text>
+        <text x="321" y="210" text-anchor="middle" fill="#5a8a5a" font-size="9" font-weight="600">Use when: subclass decides type</text>
+        <text x="537" y="210" text-anchor="middle" fill="#4a90d9" font-size="9" font-weight="600">Use when: families must match</text>
+      </svg>
+    </div>
+
+    <!-- Diagram 2: Factory Method class diagram -->
+    <h3 style="margin-top:20px">Diagram 2 — Factory Method Structure</h3>
+    <p>The Factory Method pattern defines an interface for creating an object but lets subclasses decide which class to instantiate. The abstract <em>creator</em> class contains the <strong>template method</strong> (<code>orderDish</code>) that calls the abstract <strong>factory method</strong> (<code>createDish</code>). Subclasses implement only the factory method.</p>
+    <div class="diagram-wrap">
+      <svg width="600" height="260" viewBox="0 0 600 260" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="11">
+        <defs>
+          <marker id="fm-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#5a8a5a"/>
+          </marker>
+          <marker id="fm-open" markerWidth="12" markerHeight="10" refX="0" refY="5" orient="auto">
+            <polygon points="0,0 12,5 0,10" fill="none" stroke="#5a8a5a" stroke-width="1.5"/>
+          </marker>
+          <marker id="fm-dep" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#4a90d9"/>
+          </marker>
+        </defs>
+
+        <!-- Abstract Creator -->
+        <rect x="180" y="10" width="240" height="100" rx="6" fill="#131008" stroke="#5a8a5a" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="300" y="32"  text-anchor="middle" fill="#5a8a5a" font-size="9" letter-spacing="0.12em">«abstract»</text>
+        <text x="300" y="50"  text-anchor="middle" fill="#f0e6cc" font-size="13" font-weight="600">Restaurant</text>
+        <line x1="180" y1="58" x2="420" y2="58" stroke="#2a2210"/>
+        <text x="300" y="74"  text-anchor="middle" fill="#4a3e28" font-size="10">abstract createDish(String name)</text>
+        <text x="300" y="91"  text-anchor="middle" fill="#86efac" font-size="10">orderDish(name) { ← template</text>
+        <text x="300" y="105" text-anchor="middle" fill="#4a3e28" font-size="10">  d=createDish(name); prepare; plate }</text>
+
+        <!-- Concrete Creators -->
+        <rect x="40"  y="170" width="155" height="50" rx="5" fill="#131008" stroke="#2a2210"/>
+        <text x="117" y="191" text-anchor="middle" fill="#f0e6cc" font-size="11" font-weight="600">ItalianRestaurant</text>
+        <text x="117" y="208" text-anchor="middle" fill="#86efac" font-size="10">createDish(name) { ... }</text>
+
+        <rect x="215" y="170" width="170" height="50" rx="5" fill="#131008" stroke="#2a2210"/>
+        <text x="300" y="191" text-anchor="middle" fill="#f0e6cc" font-size="11" font-weight="600">JapaneseRestaurant</text>
+        <text x="300" y="208" text-anchor="middle" fill="#86efac" font-size="10">createDish(name) { ... }</text>
+
+        <rect x="405" y="170" width="155" height="50" rx="5" fill="#131008" stroke="#2a2210"/>
+        <text x="482" y="191" text-anchor="middle" fill="#f0e6cc" font-size="11" font-weight="600">VeganRestaurant</text>
+        <text x="482" y="208" text-anchor="middle" fill="#86efac" font-size="10">createDish(name) { ... }</text>
+
+        <!-- Extends arrows -->
+        <line x1="117" y1="170" x2="240" y2="110" stroke="#5a8a5a" stroke-width="1.2" marker-end="url(#fm-open)"/>
+        <line x1="300" y1="170" x2="300" y2="110" stroke="#5a8a5a" stroke-width="1.2" marker-end="url(#fm-open)"/>
+        <line x1="482" y1="170" x2="360" y2="110" stroke="#5a8a5a" stroke-width="1.2" marker-end="url(#fm-open)"/>
+
+        <!-- Dish product -->
+        <rect x="390" y="10" width="140" height="60" rx="5" fill="#131008" stroke="#4a90d9" stroke-width="1.2" stroke-dasharray="4,3"/>
+        <text x="460" y="32"  text-anchor="middle" fill="#4a90d9" font-size="9" letter-spacing="0.1em">«interface»</text>
+        <text x="460" y="50"  text-anchor="middle" fill="#f0e6cc" font-size="12" font-weight="600">Dish</text>
+        <text x="460" y="64"  text-anchor="middle" fill="#4a3e28" font-size="10">prepare() / plate()</text>
+
+        <!-- Creates arrow (dashed) -->
+        <line x1="300" y1="200" x2="460" y2="72" stroke="#4a90d9" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#fm-dep)"/>
+        <text x="418" y="145" fill="#4a3e28" font-size="9" transform="rotate(-42,418,145)">creates →</text>
+
+        <!-- Key insight annotation -->
+        <rect x="10" y="235" width="580" height="20" rx="3" fill="#0a0804"/>
+        <text x="300" y="249" text-anchor="middle" fill="#4a3e28" font-size="10">orderDish() calls createDish() — but doesn't know which subclass's createDish() runs. That's the inversion.</text>
+      </svg>
+    </div>
+
+    <!-- Diagram 3: Abstract Factory -->
+    <h3 style="margin-top:20px">Diagram 3 — Abstract Factory: Ensuring Compatible Families</h3>
+    <p>Abstract Factory ensures that a set of related objects are created consistently. A Japanese kitchen's starter, main, and dessert all belong together — you can't mix a sashimi starter with a tiramisu dessert. The factory enforces this constraint at compile time.</p>
+    <div class="diagram-wrap">
+      <svg width="580" height="220" viewBox="0 0 580 220" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="11">
+        <defs>
+          <marker id="af-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#4a90d9"/>
+          </marker>
+          <marker id="af-open" markerWidth="12" markerHeight="10" refX="0" refY="5" orient="auto">
+            <polygon points="0,0 12,5 0,10" fill="none" stroke="#4a90d9" stroke-width="1.5"/>
+          </marker>
+        </defs>
+
+        <!-- KitchenFactory interface -->
+        <rect x="170" y="10" width="240" height="90" rx="6" fill="#131008" stroke="#4a90d9" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="290" y="30" text-anchor="middle" fill="#4a90d9" font-size="9" letter-spacing="0.12em">«interface»</text>
+        <text x="290" y="48" text-anchor="middle" fill="#f0e6cc" font-size="13" font-weight="600">KitchenFactory</text>
+        <line x1="170" y1="56" x2="410" y2="56" stroke="#2a2210"/>
+        <text x="290" y="71" text-anchor="middle" fill="#4a3e28" font-size="10">createStarter(): Starter</text>
+        <text x="290" y="87" text-anchor="middle" fill="#4a3e28" font-size="10">createMain(): MainCourse</text>
+        <text x="290" y="103" text-anchor="middle" fill="#4a3e28" font-size="9">createDessert(): Dessert</text>
+
+        <!-- ItalianKitchen -->
+        <rect x="30" y="148" width="200" height="62" rx="5" fill="#131008" stroke="#2a2210"/>
+        <text x="130" y="167" text-anchor="middle" fill="#f0e6cc" font-size="11" font-weight="600">ItalianKitchen</text>
+        <text x="130" y="183" text-anchor="middle" fill="#4a3e28" font-size="10">→ BruschettaStarter</text>
+        <text x="130" y="197" text-anchor="middle" fill="#4a3e28" font-size="10">→ MargheritaPizza</text>
+        <text x="130" y="211" text-anchor="middle" fill="#4a3e28" font-size="10">→ Tiramisu</text>
+
+        <!-- JapaneseKitchen -->
+        <rect x="350" y="148" width="200" height="62" rx="5" fill="#131008" stroke="#2a2210"/>
+        <text x="450" y="167" text-anchor="middle" fill="#f0e6cc" font-size="11" font-weight="600">JapaneseKitchen</text>
+        <text x="450" y="183" text-anchor="middle" fill="#4a3e28" font-size="10">→ MisoSoupStarter</text>
+        <text x="450" y="197" text-anchor="middle" fill="#4a3e28" font-size="10">→ TonkotsuRamen</text>
+        <text x="450" y="211" text-anchor="middle" fill="#4a3e28" font-size="10">→ MochiIceCream</text>
+
+        <!-- Implements arrows -->
+        <line x1="130" y1="148" x2="230" y2="100" stroke="#4a90d9" stroke-width="1.2" marker-end="url(#af-open)"/>
+        <line x1="450" y1="148" x2="350" y2="100" stroke="#4a90d9" stroke-width="1.2" marker-end="url(#af-open)"/>
+
+        <!-- Constraint label -->
+        <rect x="175" y="120" width="230" height="22" rx="4" fill="#0a0804" stroke="#2a2210" stroke-dasharray="3,2"/>
+        <text x="290" y="134" text-anchor="middle" fill="#4a3e28" font-size="9">Compiler guarantees family consistency</text>
+      </svg>
+    </div>
+
+    <hr class="div">
+
+    <div class="section-label">// when_to_use_each</div>
+    <div class="variant-grid">
+      <div class="variant">
+        <div class="variant-title" style="color:var(--amber)">Static Factory</div>
+        <div class="variant-sub">DishFactory.create("italian", "pizza")</div>
+        <p>Use when the type is determined at runtime by a string, enum, or config value. One class, one static method, a registry or switch inside. Simple and easy to test. Best starting point.</p>
+        <span class="tag tag-amber">Simplest</span>
+        <span class="tag tag-rust">One-dimension</span>
+      </div>
+      <div class="variant">
+        <div class="variant-title" style="color:var(--sage)">Factory Method</div>
+        <div class="variant-sub">restaurant.createDish("pizza")</div>
+        <p>Use when different <em>classes</em> (not just different string values) need different creation logic. Each restaurant subclass overrides <code>createDish()</code>. The template method <code>orderDish()</code> stays in the parent.</p>
+        <span class="tag tag-sage">Subclass variation</span>
+        <span class="tag tag-amber">Template Method</span>
+      </div>
+      <div class="variant">
+        <div class="variant-title" style="color:var(--blue)">Abstract Factory</div>
+        <div class="variant-sub">kitchen.createMain()</div>
+        <p>Use when you need to enforce that a <em>family</em> of objects are created consistently. You can't mix Italian starters with Japanese mains — the factory enforces this at compile time.</p>
+        <span class="tag tag-blue">Families</span>
+        <span class="tag tag-purple">Type-safe</span>
+      </div>
+    </div>
+
+    <hr class="div">
+    <div class="section-label">// design_principles_at_play</div>
+    <ol class="steps">
+      <li><div><strong>Dependency Inversion Principle</strong><code>OrderProcessor</code> used to depend on <code>MargheritaPizza</code>, <code>TonkotsuRamen</code> — concrete classes. After the refactor it depends on <code>Dish</code> and a factory interface — abstractions. Both high-level and low-level modules depend on abstractions, not each other.</div></li>
+      <li><div><strong>Open/Closed Principle</strong>Adding a Mexican kitchen means creating <code>MexicanRestaurant extends Restaurant</code> and three new dish classes. Zero edits to <code>OrderProcessor</code>, zero edits to existing restaurants. The system is open for extension, closed for modification.</div></li>
+      <li><div><strong>Single Responsibility Principle</strong>Creation is separated from usage. <code>OrderProcessor</code> processes orders. Factories build dishes. <code>Restaurant</code> subclasses know their own menu. Each class has one reason to change.</div></li>
+      <li><div><strong>Template Method (bonus pattern)</strong>The Factory Method pattern is almost always paired with Template Method. <code>Restaurant.orderDish()</code> is the template — it defines the algorithm (prepare, plate, serve). <code>createDish()</code> is the hook that subclasses fill in. You get two patterns for the price of one.</div></li>
+      <li><div><strong>Registry Pattern (static factory variant)</strong>Instead of a switch statement, store <code>Map&lt;String, Supplier&lt;Dish&gt;&gt;</code>. Register entries at startup. Adding a new dish is one line: <code>registry.put("vegan:wrap", VeggieWrap::new)</code>. No switch, no recompilation of the factory class.</div></li>
+    </ol>
+
+    <div class="callout callout-amber">
+      <div class="callout-title">The Restaurant Industry Parallel</div>
+      <p>A real restaurant franchise is a perfect Factory Method analogy. <strong>Corporate HQ</strong> defines the ordering process: take order → prepare → plate → serve. <strong>Each branch</strong> overrides only the preparation step — the Shoreditch branch uses artisan ingredients, the motorway services branch uses pre-made components. Same process, different factories, complete independence.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ PANEL 4 ══ -->
+  <div id="panel-refactor" class="panel">
+    <div class="section-label">// step_04</div>
+    <h2>Refactored — All Three Factory Forms</h2>
+    <p>The same nine dish classes from the baseline — unchanged. All new code lives in factories and the restaurant hierarchy.</p>
+
+    <!-- Static Factory -->
+    <div class="section-label" style="margin-top:8px">// form_1 — static factory</div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">DishFactory.java — Static Factory with Registry</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.*;
+<span class="kw">import</span> java.util.function.*;
+
+<span class="kw">public class</span> <span class="cl">DishFactory</span> {
+
+    <span class="cm">// Registry: "cuisine:dish" → Supplier (lambda, no args constructor reference)
+    // Adding a new dish is one line — no switch, no recompilation of this class</span>
+    <span class="kw">private static final</span> <span class="cl">Map</span>&lt;<span class="cl">String</span>, <span class="cl">Supplier</span>&lt;<span class="cl">Dish</span>&gt;&gt; REGISTRY = <span class="kw">new</span> <span class="cl">HashMap</span>&lt;&gt;();
+
+    <span class="kw">static</span> {
+        <span class="cm">// Italian</span>
+        REGISTRY.<span class="fn">put</span>(<span class="st">"italian:pizza"</span>,   <span class="cl">MargheritaPizza</span>::<span class="kw">new</span>);
+        REGISTRY.<span class="fn">put</span>(<span class="st">"italian:pasta"</span>,   <span class="cl">TagliatelleRagu</span>::<span class="kw">new</span>);
+        REGISTRY.<span class="fn">put</span>(<span class="st">"italian:dessert"</span>, <span class="cl">Tiramisu</span>::<span class="kw">new</span>);
+        <span class="cm">// Japanese</span>
+        REGISTRY.<span class="fn">put</span>(<span class="st">"japanese:ramen"</span>,   <span class="cl">TonkotsuRamen</span>::<span class="kw">new</span>);
+        REGISTRY.<span class="fn">put</span>(<span class="st">"japanese:sashimi"</span>, <span class="cl">SalmonSashimi</span>::<span class="kw">new</span>);
+        REGISTRY.<span class="fn">put</span>(<span class="st">"japanese:dessert"</span>, <span class="cl">MochiIceCream</span>::<span class="kw">new</span>);
+        <span class="cm">// Vegan</span>
+        REGISTRY.<span class="fn">put</span>(<span class="st">"vegan:bowl"</span>,    <span class="cl">BuddhaBowl</span>::<span class="kw">new</span>);
+        REGISTRY.<span class="fn">put</span>(<span class="st">"vegan:burger"</span>,  <span class="cl">JackfruitBurger</span>::<span class="kw">new</span>);
+        REGISTRY.<span class="fn">put</span>(<span class="st">"vegan:dessert"</span>, <span class="cl">ChiaPudding</span>::<span class="kw">new</span>);
+    }
+
+    <span class="cm">// Allow runtime registration — delivery app can add dishes from config</span>
+    <span class="kw">public static void</span> <span class="fn">register</span>(<span class="cl">String</span> key, <span class="cl">Supplier</span>&lt;<span class="cl">Dish</span>&gt; supplier) {
+        REGISTRY.<span class="fn">put</span>(key, supplier);
+    }
+
+    <span class="kw">public static</span> <span class="cl">Dish</span> <span class="fn">create</span>(<span class="cl">String</span> cuisine, <span class="cl">String</span> dishName) {
+        <span class="cl">String</span> key = cuisine.<span class="fn">toLowerCase</span>() + <span class="st">":"</span> + dishName.<span class="fn">toLowerCase</span>();
+        <span class="cl">Supplier</span>&lt;<span class="cl">Dish</span>&gt; supplier = REGISTRY.<span class="fn">get</span>(key);
+        <span class="kw">if</span> (supplier == <span class="kw">null</span>)
+            <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Unknown dish: "</span> + key);
+        <span class="kw">return</span> supplier.<span class="fn">get</span>(); <span class="cm">// creates fresh instance via Supplier</span>
+    }
+
+    <span class="kw">public static</span> <span class="cl">Set</span>&lt;<span class="cl">String</span>&gt; <span class="fn">availableDishes</span>() { <span class="kw">return</span> REGISTRY.<span class="fn">keySet</span>(); }
+}</code></pre>
+    </div>
+
+    <!-- Factory Method -->
+    <div class="section-label" style="margin-top:18px">// form_2 — factory method</div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Restaurant.java — Abstract Creator</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">/**
+ * The Creator. Contains the template method (orderDish) and
+ * declares the factory method (createDish) as abstract.
+ * Subclasses only override createDish — the order workflow is inherited.
+ */</span>
+<span class="kw">public abstract class</span> <span class="cl">Restaurant</span> {
+
+    <span class="cm">// Template method — the algorithm stays here, fixed</span>
+    <span class="kw">public</span> <span class="cl">Dish</span> <span class="fn">orderDish</span>(<span class="cl">String</span> dishName) {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"\n=== Order: "</span> + dishName + <span class="st">" at "</span> + <span class="fn">getName</span>() + <span class="st">" ==="</span>);
+        <span class="cl">Dish</span> dish = <span class="fn">createDish</span>(dishName); <span class="cm">// ← calls subclass implementation</span>
+        dish.<span class="fn">prepare</span>();
+        dish.<span class="fn">plate</span>();
+        dish.<span class="fn">printReceipt</span>();
+        <span class="kw">return</span> dish;
+    }
+
+    <span class="cm">// Factory method — subclasses decide what to instantiate</span>
+    <span class="kw">protected abstract</span> <span class="cl">Dish</span> <span class="fn">createDish</span>(<span class="cl">String</span> dishName);
+
+    <span class="kw">public abstract</span> <span class="cl">String</span> <span class="fn">getName</span>();
+}
+
+<span class="cm">// ─────────────────────────────────────────────────────────
+// Concrete Creators — each subclass only knows its own menu
+// ─────────────────────────────────────────────────────────</span>
+
+<span class="kw">public class</span> <span class="cl">ItalianRestaurant</span> <span class="kw">extends</span> <span class="cl">Restaurant</span> {
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getName</span>() { <span class="kw">return</span> <span class="st">"La Trattoria"</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">protected</span> <span class="cl">Dish</span> <span class="fn">createDish</span>(<span class="cl">String</span> dishName) {
+        <span class="kw">return switch</span> (dishName.<span class="fn">toLowerCase</span>()) {
+            <span class="kw">case</span> <span class="st">"pizza"</span>   -> <span class="kw">new</span> <span class="cl">MargheritaPizza</span>();
+            <span class="kw">case</span> <span class="st">"pasta"</span>   -> <span class="kw">new</span> <span class="cl">TagliatelleRagu</span>();
+            <span class="kw">case</span> <span class="st">"dessert"</span> -> <span class="kw">new</span> <span class="cl">Tiramisu</span>();
+            <span class="kw">default</span> -> <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Not on Italian menu: "</span> + dishName);
+        };
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">JapaneseRestaurant</span> <span class="kw">extends</span> <span class="cl">Restaurant</span> {
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getName</span>() { <span class="kw">return</span> <span class="st">"Sakura Omakase"</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">protected</span> <span class="cl">Dish</span> <span class="fn">createDish</span>(<span class="cl">String</span> dishName) {
+        <span class="kw">return switch</span> (dishName.<span class="fn">toLowerCase</span>()) {
+            <span class="kw">case</span> <span class="st">"ramen"</span>   -> <span class="kw">new</span> <span class="cl">TonkotsuRamen</span>();
+            <span class="kw">case</span> <span class="st">"sashimi"</span> -> <span class="kw">new</span> <span class="cl">SalmonSashimi</span>();
+            <span class="kw">case</span> <span class="st">"dessert"</span> -> <span class="kw">new</span> <span class="cl">MochiIceCream</span>();
+            <span class="kw">default</span> -> <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Not on Japanese menu: "</span> + dishName);
+        };
+    }
+}</code></pre>
+    </div>
+
+    <!-- Abstract Factory -->
+    <div class="section-label" style="margin-top:18px">// form_3 — abstract factory</div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">KitchenFactory.java — Abstract Factory</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Product interfaces — one per course type</span>
+<span class="kw">public interface</span> <span class="cl">Starter</span>    { <span class="kw">void</span> <span class="fn">serve</span>(); }
+<span class="kw">public interface</span> <span class="cl">MainCourse</span> { <span class="kw">void</span> <span class="fn">serve</span>(); }
+<span class="kw">public interface</span> <span class="cl">Dessert</span>    { <span class="kw">void</span> <span class="fn">serve</span>(); }
+
+<span class="cm">// Abstract Factory — defines the "family" contract</span>
+<span class="kw">public interface</span> <span class="cl">KitchenFactory</span> {
+    <span class="cl">Starter</span>    <span class="fn">createStarter</span>();
+    <span class="cl">MainCourse</span> <span class="fn">createMain</span>();
+    <span class="cl">Dessert</span>    <span class="fn">createDessert</span>();
+}
+
+<span class="cm">// Italian family — all three products belong together</span>
+<span class="kw">public class</span> <span class="cl">ItalianKitchen</span> <span class="kw">implements</span> <span class="cl">KitchenFactory</span> {
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Starter</span>    <span class="fn">createStarter</span>()  { <span class="kw">return new</span> <span class="cl">Bruschetta</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">MainCourse</span> <span class="fn">createMain</span>()     { <span class="kw">return new</span> <span class="cl">MargheritaPizza</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Dessert</span>    <span class="fn">createDessert</span>()  { <span class="kw">return new</span> <span class="cl">Tiramisu</span>(); }
+}
+
+<span class="cm">// Japanese family — guaranteed consistent</span>
+<span class="kw">public class</span> <span class="cl">JapaneseKitchen</span> <span class="kw">implements</span> <span class="cl">KitchenFactory</span> {
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Starter</span>    <span class="fn">createStarter</span>()  { <span class="kw">return new</span> <span class="cl">MisoSoup</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">MainCourse</span> <span class="fn">createMain</span>()     { <span class="kw">return new</span> <span class="cl">TonkotsuRamen</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Dessert</span>    <span class="fn">createDessert</span>()  { <span class="kw">return new</span> <span class="cl">MochiIceCream</span>(); }
+}
+
+<span class="cm">// Tasting menu orchestrator — only knows KitchenFactory, never concrete classes</span>
+<span class="kw">public class</span> <span class="cl">TastingMenu</span> {
+    <span class="kw">private final</span> <span class="cl">KitchenFactory</span> kitchen;
+
+    <span class="kw">public</span> <span class="fn">TastingMenu</span>(<span class="cl">KitchenFactory</span> kitchen) { <span class="kw">this</span>.kitchen = kitchen; }
+
+    <span class="kw">public void</span> <span class="fn">serve</span>() {
+        kitchen.<span class="fn">createStarter</span>().<span class="fn">serve</span>();  <span class="cm">// always the right family</span>
+        kitchen.<span class="fn">createMain</span>().<span class="fn">serve</span>();
+        kitchen.<span class="fn">createDessert</span>().<span class="fn">serve</span>();
+    }
+}
+<span class="cm">// new TastingMenu(new ItalianKitchen()).serve();  → Italian family ✓
+// new TastingMenu(new JapaneseKitchen()).serve(); → Japanese family ✓
+// Can't accidentally mix families — compiler prevents it ✓</span></code></pre>
+    </div>
+
+    <div class="receipt">
+      <div class="r-head">🧾 Order Receipt — Sakura Omakase</div>
+      <div class="r-line"><strong>Tonkotsu Ramen</strong><span>£13.00</span></div>
+      <div class="r-line"><strong>Salmon Sashimi</strong><span>£15.00</span></div>
+      <div class="r-line"><strong>Mochi Ice Cream</strong><span>£6.00</span></div>
+      <div class="r-total"><span>Total</span><span>£34.00</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ PANEL 5 ══ -->
+  <div id="panel-challenges" class="panel">
+    <div class="section-label">// step_05</div>
+    <h2>Practice Challenges</h2>
+    <p>Ten challenges across three tiers. All build on the refactored code from panel ④.</p>
+
+    <!-- EASY -->
+    <div class="tier tier-easy">
+      <div class="tier-header">
+        <span class="tier-icon">🍽</span>
+        <div>
+          <div class="tier-title">COMMIS CHEF TIER</div>
+          <div class="tier-sub">Challenges 1–3 · Core mechanics — extend the menu and factories</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Commis</span><span class="tag tag-sage">Challenge 1</span></div>
+          <h3>Add a Mexican Kitchen</h3>
+          <p>Create three new dish classes: <code>BeefTacos</code>, <code>Guacamole</code>, and <code>Churros</code>, each extending <code>Dish</code>. Then create a <code>MexicanRestaurant extends Restaurant</code> that overrides <code>createDish()</code> to build them. Register all three in <code>DishFactory</code>'s registry. Verify that <code>OrderProcessor</code> needs <strong>zero edits</strong>.</p>
+          <div class="callout callout-sage" style="margin-top:10px"><div class="callout-title">Goal</div><p>Experience OCP in practice. Adding a cuisine should feel like adding a module, not editing existing code. If you find yourself editing <code>OrderProcessor</code> or any existing class, something is wrong.</p></div>
+        </div>
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Commis</span><span class="tag tag-sage">Challenge 2</span></div>
+          <h3>Allergen-Aware Factory</h3>
+          <p>Add an <code>allergens</code> field (<code>Set&lt;String&gt;</code>) to the <code>Dish</code> base class. Each concrete dish populates its allergens in the constructor. Add a <code>DishFactory.createSafe(String cuisine, String dish, Set&lt;String&gt; avoidAllergens)</code> static method that throws an <code>AllergenException</code> if the requested dish contains any avoided allergen, before creating it.</p>
+          <div class="callout callout-sage" style="margin-top:10px"><div class="callout-title">Think About</div><p>The allergen check happens in the factory, before the object is constructed. This is a key advantage of factories over direct <code>new</code> calls — you can add pre-construction validation in one place that applies to every caller.</p></div>
+        </div>
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Commis</span><span class="tag tag-sage">Challenge 3</span></div>
+          <h3>Config-File–Driven Registration</h3>
+          <p>Load dish registrations from a <code>dishes.properties</code> file at startup: <code>italian:pizza=MargheritaPizza</code>. Use <code>Class.forName()</code> and reflection to instantiate the class from the string. Register each mapping in <code>DishFactory</code>'s registry at startup. Ordering a dish should work entirely from config — adding a new dish means editing the properties file, not recompiling.</p>
+          <div class="callout callout-sage" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This is how Spring's <code>ApplicationContext</code> works at its core. Bean definitions in XML/YAML are properties files. Spring reads them, uses reflection to instantiate the class, and registers the bean. You are building a micro Spring.</p></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MEDIUM -->
+    <div class="tier tier-medium">
+      <div class="tier-header">
+        <span class="tier-icon">👨‍🍳</span>
+        <div>
+          <div class="tier-title">SOUS CHEF TIER</div>
+          <div class="tier-sub">Challenges 4–7 · Composition, variants, real patterns</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Sous Chef</span><span class="tag tag-amber">Challenge 4</span></div>
+          <h3>Premium Branch — Factory Method Variation</h3>
+          <p>Create a <code>PremiumItalianRestaurant extends ItalianRestaurant</code>. It overrides <code>createDish()</code> to return upgraded versions: <code>TrufflePizza extends MargheritaPizza</code> (overrides <code>prepare()</code> to add truffle shaving step, price ×1.6). The <code>orderDish()</code> template method is inherited unchanged. A single factory method override changes the product without touching the workflow.</p>
+          <div class="callout callout-amber" style="margin-top:10px"><div class="callout-title">Think About</div><p>This is the real power of Factory Method over Static Factory. You can't vary creation per branch with a static registry — you'd need a branch identifier in every call. Subclasses express variation naturally.</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Sous Chef</span><span class="tag tag-amber">Challenge 5</span></div>
+          <h3>Parametrised Factory — Custom Pasta</h3>
+          <p>Some dishes need parameters at creation time. Create a <code>CustomPasta</code> class that takes a sauce type (<code>enum Sauce { BOLOGNESE, CARBONARA, PESTO, ARRABIATA }</code>) and a pasta shape (<code>enum Shape { TAGLIATELLE, SPAGHETTI, RIGATONI }</code>) in the constructor. Add a <code>createCustomPasta(Sauce, Shape)</code> method to <code>ItalianRestaurant</code>. The factory method pattern only passes a name — how do you extend it to support parameterised construction?</p>
+          <div class="callout callout-amber" style="margin-top:10px"><div class="callout-title">Think About</div><p>The standard factory method takes no parameters (or just a name). Parameterised creation pushes you toward a Builder pattern or a factory that accepts a config record. How you bridge them is the design challenge.</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Sous Chef</span><span class="tag tag-amber">Challenge 6</span></div>
+          <h3>Cached / Pooled Factory</h3>
+          <p>Some dishes are stateless (menus, ingredient lists). Repeatedly creating new instances wastes memory. Add a <code>CachedDishFactory</code> that wraps <code>DishFactory</code>: on the first request for a given key it creates the dish and caches it; subsequent requests return the same instance. Make it thread-safe. When would caching dishes be correct and when would it be wrong?</p>
+          <div class="callout callout-amber" style="margin-top:10px"><div class="callout-title">Think About</div><p>Caching is only safe for <strong>immutable</strong> or <strong>stateless</strong> objects. A dish whose <code>prepare()</code> modifies internal state must not be shared. This is the same trade-off as the Flyweight pattern and connection pooling.</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Sous Chef</span><span class="tag tag-amber">Challenge 7</span></div>
+          <h3>Factory + Decorator — Dietary Modifiers</h3>
+          <p>Use the Decorator pattern on top of the Factory. Create a <code>DishDecorator abstract class extends Dish</code>. Then: <code>GlutenFreeDecorator</code> (removes gluten ingredients, adds £1.50 surcharge), <code>SpicyDecorator</code> (adds chilli to ingredient list). Chain them: <code>new SpicyDecorator(new GlutenFreeDecorator(DishFactory.create("italian","pizza")))</code>. The factory creates the base; decorators modify it.</p>
+          <div class="callout callout-amber" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>Factory + Decorator is one of the most common pattern combinations in real code. Spring's bean post-processors wrap beans with decorators after factory creation. This is also how Java I/O streams work.</p></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- HARD -->
+    <div class="tier tier-hard">
+      <div class="tier-header">
+        <span class="tier-icon">⭐</span>
+        <div>
+          <div class="tier-title">HEAD CHEF TIER</div>
+          <div class="tier-sub">Challenges 8–10 · Architecture, testing, cross-pattern</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge hard">
+          <div class="challenge-meta"><span class="diff diff-hard">Head Chef</span><span class="tag tag-rust">Challenge 8</span></div>
+          <h3>Abstract Factory — Full Tasting Menu System</h3>
+          <p>Implement the complete Abstract Factory from panel ④. Add a third factory: <code>VeganKitchen implements KitchenFactory</code> with its own starter (hummus), main (BuddhaBowl), and dessert (ChiaPudding). Write a <code>TastingMenuPlanner</code> that accepts a <code>KitchenFactory</code>, creates the full three-course menu, and prints a formatted receipt with totals. Prove that substituting <code>new ItalianKitchen()</code> for <code>new JapaneseKitchen()</code> changes the entire meal without any other code change.</p>
+          <div class="callout callout-rust" style="margin-top:10px"><div class="callout-title">Think About</div><p>Where does the <code>KitchenFactory</code> get injected? The calling code should construct the factory and pass it in — the planner never calls <code>new ItalianKitchen()</code> itself. This is Dependency Injection via constructor, the same mechanism Spring uses for beans.</p></div>
+        </div>
+
+        <div class="challenge hard">
+          <div class="challenge-meta"><span class="diff diff-hard">Head Chef</span><span class="tag tag-rust">Challenge 9</span></div>
+          <h3>Test with a Mock Factory</h3>
+          <p>The whole point of factories is testability. Write a <code>MockRestaurant extends Restaurant</code> whose <code>createDish()</code> returns a <code>MockDish</code> — a simple stub that tracks whether <code>prepare()</code> and <code>plate()</code> were called. Write three JUnit tests for <code>Restaurant.orderDish()</code>: (a) verify <code>prepare()</code> is called, (b) verify <code>plate()</code> is called, (c) verify the returned dish name matches what was ordered. No real dishes instantiated in these tests.</p>
+          <div class="callout callout-rust" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This is the entire reason patterns like Factory Method exist in test-driven codebases. The abstract class defines the algorithm. The test provides a trivial concrete implementation. You test the algorithm in complete isolation from any real product objects.</p></div>
+        </div>
+
+        <div class="challenge boss">
+          <div class="challenge-meta"><span class="diff diff-boss">BOSS</span><span class="tag tag-purple">Challenge 10</span></div>
+          <h3>New Domain — JDBC Connection Factory</h3>
+          <p>Port all three factory forms to database connections. <strong>Static Factory:</strong> <code>ConnectionFactory.create("mysql")</code> → <code>MySqlConnection</code>. <strong>Factory Method:</strong> abstract <code>DataAccessLayer</code> with <code>createConnection()</code> — subclasses provide PostgreSQL vs MySQL connections, the query template stays in the parent. <strong>Abstract Factory:</strong> <code>DatabaseDriverFactory</code> creates a compatible <code>Connection</code> + <code>Statement</code> + <code>ResultSet</code> family. Map each to its real Java JDBC equivalent.</p>
+          <div class="callout callout-purple" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p><code>java.sql.DriverManager.getConnection(url)</code> is a Static Factory. <code>javax.sql.DataSource.getConnection()</code> is a Factory Method with implementations like <code>HikariDataSource</code>. <code>java.sql.Connection</code> creating <code>Statement</code> and <code>PreparedStatement</code> is Abstract Factory. You have been using all three factory forms every time you wrote a JDBC query.</p></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════ PANEL 6 ══ -->
+  <div id="panel-solutions" class="panel">
+    <div class="section-label">// step_06</div>
+    <h2>Challenge Solutions</h2>
+    <p>Full solutions with design commentary. Always attempt first.</p>
+
+    <!-- S1 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Commis</span><span class="tag tag-sage">Solution 1 — Mexican Kitchen</span></div><h3>New cuisine = new classes only. Zero edits to existing code.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">BeefTacos.java + MexicanRestaurant.java + DishFactory registration</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Step 1: New dish classes (same pattern as Italian/Japanese/Vegan)</span>
+<span class="kw">public class</span> <span class="cl">BeefTacos</span> <span class="kw">extends</span> <span class="cl">Dish</span> {
+    <span class="kw">public</span> <span class="fn">BeefTacos</span>() {
+        name        = <span class="st">"Beef Tacos"</span>;
+        price       = <span class="nu">11.50</span>;
+        ingredients = <span class="cl">List</span>.<span class="fn">of</span>(<span class="st">"corn tortilla"</span>, <span class="st">"beef"</span>, <span class="st">"salsa"</span>, <span class="st">"lime"</span>);
+    }
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">prepare</span>() { <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  → Seasoning beef, warming tortillas"</span>); }
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">plate</span>()   { <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  → Assembling with salsa and lime"</span>); }
+}
+<span class="cm">// Guacamole.java and Churros.java — same structure, omitted for brevity</span>
+
+<span class="cm">// Step 2: New restaurant subclass</span>
+<span class="kw">public class</span> <span class="cl">MexicanRestaurant</span> <span class="kw">extends</span> <span class="cl">Restaurant</span> {
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getName</span>() { <span class="kw">return</span> <span class="st">"Cantina del Sol"</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">protected</span> <span class="cl">Dish</span> <span class="fn">createDish</span>(<span class="cl">String</span> name) {
+        <span class="kw">return switch</span> (name.<span class="fn">toLowerCase</span>()) {
+            <span class="kw">case</span> <span class="st">"tacos"</span>     -> <span class="kw">new</span> <span class="cl">BeefTacos</span>();
+            <span class="kw">case</span> <span class="st">"guacamole"</span> -> <span class="kw">new</span> <span class="cl">Guacamole</span>();
+            <span class="kw">case</span> <span class="st">"dessert"</span>   -> <span class="kw">new</span> <span class="cl">Churros</span>();
+            <span class="kw">default</span> -> <span class="kw">throw new</span> <span class="cl">IllegalArgumentException</span>(<span class="st">"Not on Mexican menu: "</span> + name);
+        };
+    }
+}
+
+<span class="cm">// Step 3: Register in DishFactory (one line each)
+// Add to DishFactory static block OR call at startup:</span>
+<span class="cl">DishFactory</span>.<span class="fn">register</span>(<span class="st">"mexican:tacos"</span>,     <span class="cl">BeefTacos</span>::<span class="kw">new</span>);
+<span class="cl">DishFactory</span>.<span class="fn">register</span>(<span class="st">"mexican:guacamole"</span>, <span class="cl">Guacamole</span>::<span class="kw">new</span>);
+<span class="cl">DishFactory</span>.<span class="fn">register</span>(<span class="st">"mexican:dessert"</span>,   <span class="cl">Churros</span>::<span class="kw">new</span>);
+
+<span class="cm">// OrderProcessor.java: ZERO EDITS. ✓
+// Restaurant.java:     ZERO EDITS. ✓
+// DishFactory.java:    ZERO EDITS (using runtime register). ✓
+// This is Open/Closed Principle demonstrated exactly.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S2 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Commis</span><span class="tag tag-sage">Solution 2 — Allergen-Aware Factory</span></div><h3>Pre-construction validation in one place, applies everywhere.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Dish.java + DishFactory.java + AllergenException.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// In Dish base class — add allergens field</span>
+<span class="kw">protected</span> <span class="cl">Set</span>&lt;<span class="cl">String</span>&gt; allergens = <span class="kw">new</span> <span class="cl">HashSet</span>&lt;&gt;();
+<span class="kw">public</span> <span class="cl">Set</span>&lt;<span class="cl">String</span>&gt; <span class="fn">getAllergens</span>() { <span class="kw">return</span> <span class="cl">Collections</span>.<span class="fn">unmodifiableSet</span>(allergens); }
+
+<span class="cm">// In MargheritaPizza constructor — populate allergens</span>
+allergens = <span class="kw">new</span> <span class="cl">HashSet</span>&lt;&gt;(<span class="cl">Set</span>.<span class="fn">of</span>(<span class="st">"gluten"</span>, <span class="st">"dairy"</span>));
+
+<span class="cm">// Custom exception</span>
+<span class="kw">public class</span> <span class="cl">AllergenException</span> <span class="kw">extends</span> <span class="cl">RuntimeException</span> {
+    <span class="kw">public</span> <span class="fn">AllergenException</span>(<span class="cl">String</span> dish, <span class="cl">String</span> allergen) {
+        <span class="kw">super</span>(<span class="st">"Dish '"</span> + dish + <span class="st">"' contains allergen: "</span> + allergen);
+    }
+}
+
+<span class="cm">// In DishFactory — safe creation method</span>
+<span class="kw">public static</span> <span class="cl">Dish</span> <span class="fn">createSafe</span>(<span class="cl">String</span> cuisine, <span class="cl">String</span> dishName,
+                               <span class="cl">Set</span>&lt;<span class="cl">String</span>&gt; avoidAllergens) {
+    <span class="cl">Dish</span> dish = <span class="fn">create</span>(cuisine, dishName); <span class="cm">// create first to inspect allergens</span>
+    <span class="kw">for</span> (<span class="cl">String</span> allergen : avoidAllergens) {
+        <span class="kw">if</span> (dish.<span class="fn">getAllergens</span>().<span class="fn">contains</span>(allergen)) {
+            <span class="kw">throw new</span> <span class="cl">AllergenException</span>(dishName, allergen);
+        }
+    }
+    <span class="kw">return</span> dish;
+}
+
+<span class="cm">// Usage:
+// Set&lt;String&gt; customerAllergens = Set.of("gluten", "nuts");
+// try {
+//   Dish d = DishFactory.createSafe("italian", "pizza", customerAllergens);
+// } catch (AllergenException e) {
+//   System.out.println("Can't order: " + e.getMessage());
+// }
+//
+// Every caller gets allergen checks automatically — no duplication. ✓
+// Adding a new allergen type requires no code changes — just populate
+// the allergens field in each dish class constructor. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S3 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Commis</span><span class="tag tag-sage">Solution 3 — Config-File Registration</span></div><h3>Reflection-based factory registration. The skeleton of Spring.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">DishFactoryLoader.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// dishes.properties file content:
+// italian:pizza=com.restaurant.dishes.MargheritaPizza
+// italian:pasta=com.restaurant.dishes.TagliatelleRagu
+// japanese:ramen=com.restaurant.dishes.TonkotsuRamen
+// ...</span>
+
+<span class="kw">public class</span> <span class="cl">DishFactoryLoader</span> {
+
+    <span class="kw">public static void</span> <span class="fn">loadFromProperties</span>(<span class="cl">String</span> resourcePath) {
+        <span class="cl">Properties</span> props = <span class="kw">new</span> <span class="cl">Properties</span>();
+
+        <span class="kw">try</span> (<span class="kw">var</span> in = <span class="cl">DishFactoryLoader</span>.<span class="kw">class</span>
+                .<span class="fn">getResourceAsStream</span>(resourcePath)) {
+            props.<span class="fn">load</span>(in);
+        } <span class="kw">catch</span> (<span class="cl">IOException</span> e) {
+            <span class="kw">throw new</span> <span class="cl">RuntimeException</span>(<span class="st">"Cannot load dish config"</span>, e);
+        }
+
+        props.<span class="fn">forEach</span>((key, value) -> {
+            <span class="kw">final</span> <span class="cl">String</span> className = (<span class="cl">String</span>) value;
+            <span class="cm">// Register a Supplier that uses reflection to instantiate</span>
+            <span class="cl">DishFactory</span>.<span class="fn">register</span>((<span class="cl">String</span>) key, () -> {
+                <span class="kw">try</span> {
+                    <span class="kw">return</span> (<span class="cl">Dish</span>) <span class="cl">Class</span>.<span class="fn">forName</span>(className)
+                                        .<span class="fn">getDeclaredConstructor</span>()
+                                        .<span class="fn">newInstance</span>();
+                } <span class="kw">catch</span> (<span class="cl">Exception</span> e) {
+                    <span class="kw">throw new</span> <span class="cl">RuntimeException</span>(<span class="st">"Cannot instantiate: "</span> + className, e);
+                }
+            });
+        });
+    }
+}
+
+<span class="cm">// Startup:
+// DishFactoryLoader.loadFromProperties("/dishes.properties");
+// Dish d = DishFactory.create("italian", "pizza"); // works ✓
+//
+// To add a new dish: edit dishes.properties, no recompile. ✓
+//
+// This is Spring's ClassPathXmlApplicationContext at its core:
+//   - Read bean definitions from XML/YAML/properties
+//   - Use Class.forName() + newInstance() to create beans
+//   - Register in ApplicationContext (our DishFactory registry)
+// Spring adds scope, lifecycle, AOP proxying — but the skeleton is identical.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S4 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Sous Chef</span><span class="tag tag-amber">Solution 4 — Premium Branch</span></div><h3>One factory method override changes the entire product line.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">TrufflePizza.java + PremiumItalianRestaurant.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">TrufflePizza</span> <span class="kw">extends</span> <span class="cl">MargheritaPizza</span> {
+
+    <span class="kw">public</span> <span class="fn">TrufflePizza</span>() {
+        <span class="kw">super</span>();
+        name  = <span class="st">"Truffle Margherita"</span>;
+        price = <span class="kw">super</span>.price * <span class="nu">1.6</span>; <span class="cm">// £12 × 1.6 = £19.20</span>
+        ingredients = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(ingredients);
+        ingredients.<span class="fn">add</span>(<span class="st">"fresh black truffle"</span>);
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">prepare</span>() {
+        <span class="kw">super</span>.<span class="fn">prepare</span>(); <span class="cm">// all base steps</span>
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  → Shaving fresh black truffle over pizza"</span>); <span class="cm">// premium step</span>
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">PremiumItalianRestaurant</span> <span class="kw">extends</span> <span class="cl">ItalianRestaurant</span> {
+
+    <span class="an">@Override</span>
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getName</span>() { <span class="kw">return</span> <span class="st">"La Trattoria — Mayfair"</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">protected</span> <span class="cl">Dish</span> <span class="fn">createDish</span>(<span class="cl">String</span> dishName) {
+        <span class="kw">if</span> (dishName.<span class="fn">equals</span>(<span class="st">"pizza"</span>)) <span class="kw">return new</span> <span class="cl">TrufflePizza</span>(); <span class="cm">// upgrade pizza</span>
+        <span class="kw">return super</span>.<span class="fn">createDish</span>(dishName); <span class="cm">// everything else: standard</span>
+    }
+}
+
+<span class="cm">// Testing — same orderDish() template, different product:
+// new ItalianRestaurant().orderDish("pizza");
+//   → Margherita Pizza  £12.00  [standard steps]
+//
+// new PremiumItalianRestaurant().orderDish("pizza");
+//   → Truffle Margherita £19.20  [+ truffle shaving step]
+//
+// orderDish() in Restaurant.java: ZERO EDITS. ✓
+// ItalianRestaurant.java:         ZERO EDITS. ✓
+// One factory method override → entire product variation. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S5 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Sous Chef</span><span class="tag tag-amber">Solution 5 — Parametrised Factory</span></div><h3>Use a config record to pass parameters cleanly.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">PastaConfig.java + CustomPasta.java + ItalianRestaurant</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Config record — immutable, named parameters, no positional confusion</span>
+<span class="kw">public record</span> <span class="cl">PastaConfig</span>(<span class="cl">Sauce</span> sauce, <span class="cl">Shape</span> shape) {
+    <span class="kw">public enum</span> <span class="cl">Sauce</span>  { BOLOGNESE, CARBONARA, PESTO, ARRABIATA }
+    <span class="kw">public enum</span> <span class="cl">Shape</span>  { TAGLIATELLE, SPAGHETTI, RIGATONI }
+}
+
+<span class="kw">public class</span> <span class="cl">CustomPasta</span> <span class="kw">extends</span> <span class="cl">Dish</span> {
+    <span class="kw">private final</span> <span class="cl">PastaConfig</span> config;
+
+    <span class="kw">public</span> <span class="fn">CustomPasta</span>(<span class="cl">PastaConfig</span> config) {
+        <span class="kw">this</span>.config = config;
+        name  = config.<span class="fn">shape</span>() + <span class="st">" "</span> + config.<span class="fn">sauce</span>();
+        price = <span class="nu">13.00</span>;
+        ingredients = <span class="cl">List</span>.<span class="fn">of</span>(<span class="st">"fresh pasta"</span>, config.<span class="fn">sauce</span>().<span class="fn">toString</span>().<span class="fn">toLowerCase</span>());
+    }
+
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">prepare</span>() { <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  → Cooking "</span> + config.<span class="fn">shape</span>() + <span class="st">" with "</span> + config.<span class="fn">sauce</span>()); }
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">plate</span>()   { <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  → Plating with fresh Parmesan"</span>); }
+}
+
+<span class="cm">// In ItalianRestaurant — overloaded factory method for parameterised creation</span>
+<span class="kw">public</span> <span class="cl">Dish</span> <span class="fn">createCustomPasta</span>(<span class="cl">PastaConfig</span> config) {
+    <span class="kw">return new</span> <span class="cl">CustomPasta</span>(config);
+}
+
+<span class="cm">// Usage:
+// var config = new PastaConfig(PastaConfig.Sauce.CARBONARA, PastaConfig.Shape.SPAGHETTI);
+// Dish spaghCarb = italianRest.createCustomPasta(config);
+//
+// The standard createDish(String) still works for menu items.
+// createCustomPasta(PastaConfig) handles the parameterised case.
+// The record ensures all parameters are named, immutable, and validated. ✓
+//
+// Alternative: Builder pattern for complex configurations with optional params.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S6 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Sous Chef</span><span class="tag tag-amber">Solution 6 — Cached Factory</span></div><h3>Thread-safe cache — correct only for stateless/immutable dishes.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">CachedDishFactory.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">CachedDishFactory</span> {
+
+    <span class="cm">// ConcurrentHashMap: thread-safe reads with fine-grained locking on writes</span>
+    <span class="kw">private final</span> <span class="cl">Map</span>&lt;<span class="cl">String</span>, <span class="cl">Dish</span>&gt; cache = <span class="kw">new</span> <span class="cl">ConcurrentHashMap</span>&lt;&gt;();
+
+    <span class="kw">public</span> <span class="cl">Dish</span> <span class="fn">create</span>(<span class="cl">String</span> cuisine, <span class="cl">String</span> dishName) {
+        <span class="cl">String</span> key = cuisine + <span class="st">":"</span> + dishName;
+        <span class="cm">// computeIfAbsent is atomic — only one thread creates per key</span>
+        <span class="kw">return</span> cache.<span class="fn">computeIfAbsent</span>(key, k -> <span class="cl">DishFactory</span>.<span class="fn">create</span>(cuisine, dishName));
+    }
+
+    <span class="kw">public void</span> <span class="fn">evict</span>(<span class="cl">String</span> key) { cache.<span class="fn">remove</span>(key); }
+    <span class="kw">public void</span> <span class="fn">clearAll</span>()         { cache.<span class="fn">clear</span>(); }
+    <span class="kw">public int</span>  <span class="fn">cacheSize</span>()        { <span class="kw">return</span> cache.<span class="fn">size</span>(); }
+}
+
+<span class="cm">// When caching is SAFE:
+//   - The dish object is immutable after construction (no setters)
+//   - prepare() and plate() are pure (no side effects on dish state)
+//   - Dish is used as a value object (recipe card, menu entry)
+//   Example: DishMetadata, IngredientList, NutritionalInfo
+//
+// When caching is WRONG:
+//   - prepare() sets instance state (e.g. this.cooked = true)
+//   - The dish tracks runtime data (temperature, status)
+//   - You need a FRESH instance per order (customer A's pizza ≠ customer B's pizza)
+//   Example: every real dish ordered — must be a new instance
+//
+// This is exactly the Flyweight pattern: share immutable state,
+// don't share mutable state. Connection pooling uses the same logic:
+// pool Connection objects (reusable after reset), never pool active transactions.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S7 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Sous Chef</span><span class="tag tag-amber">Solution 7 — Factory + Decorator</span></div><h3>Factory builds base; decorators modify — independent concerns.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">DishDecorator.java + GlutenFreeDecorator.java + SpicyDecorator.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Abstract decorator — IS-A Dish + HAS-A Dish (same as coffee shop workshop)</span>
+<span class="kw">public abstract class</span> <span class="cl">DishDecorator</span> <span class="kw">extends</span> <span class="cl">Dish</span> {
+    <span class="kw">protected final</span> <span class="cl">Dish</span> inner;
+    <span class="kw">protected</span> <span class="fn">DishDecorator</span>(<span class="cl">Dish</span> inner) {
+        <span class="kw">this</span>.inner = inner;
+        <span class="kw">this</span>.name  = inner.<span class="fn">getName</span>();
+        <span class="kw">this</span>.price = inner.<span class="fn">getPrice</span>();
+        <span class="kw">this</span>.ingredients = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(inner.<span class="fn">getIngredients</span>());
+    }
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">prepare</span>() { inner.<span class="fn">prepare</span>(); }
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">plate</span>()   { inner.<span class="fn">plate</span>(); }
+}
+
+<span class="kw">public class</span> <span class="cl">GlutenFreeDecorator</span> <span class="kw">extends</span> <span class="cl">DishDecorator</span> {
+    <span class="kw">public</span> <span class="fn">GlutenFreeDecorator</span>(<span class="cl">Dish</span> inner) {
+        <span class="kw">super</span>(inner);
+        name  = <span class="st">"GF "</span> + name;
+        price = price + <span class="nu">1.50</span>;
+        ingredients.<span class="fn">removeIf</span>(i -> i.<span class="fn">contains</span>(<span class="st">"flour"</span>) || i.<span class="fn">contains</span>(<span class="st">"wheat"</span>));
+        ingredients.<span class="fn">add</span>(<span class="nu">0</span>, <span class="st">"gluten-free flour"</span>);
+        allergens.<span class="fn">remove</span>(<span class="st">"gluten"</span>);
+    }
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">prepare</span>() {
+        inner.<span class="fn">prepare</span>();
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  → Using gluten-free base [+£1.50]"</span>);
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">SpicyDecorator</span> <span class="kw">extends</span> <span class="cl">DishDecorator</span> {
+    <span class="kw">public</span> <span class="fn">SpicyDecorator</span>(<span class="cl">Dish</span> inner) {
+        <span class="kw">super</span>(inner);
+        name = <span class="st">"🌶 Spicy "</span> + name;
+        ingredients.<span class="fn">add</span>(<span class="st">"fresh chilli"</span>);
+    }
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">prepare</span>() {
+        inner.<span class="fn">prepare</span>();
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  → Adding fresh chilli and chilli oil"</span>);
+    }
+}
+
+<span class="cm">// Chaining — factory creates base, decorators wrap it:
+// Dish custom = new SpicyDecorator(
+//                new GlutenFreeDecorator(
+//                  DishFactory.create("italian", "pizza")
+//                ));
+// custom.prepare(); // base + GF + spicy steps ✓
+// custom.getPrice(); // £12 + £1.50 = £13.50 ✓
+// custom.getName();  // "🌶 Spicy GF Margherita Pizza" ✓
+//
+// Decorators are independent and composable in any order. ✓
+// Factory creates the base — decorators modify without subclassing. ✓
+// Spring BeanPostProcessor wraps beans in AOP proxies this exact way. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S8 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">Head Chef</span><span class="tag tag-rust">Solution 8 — Full Abstract Factory</span></div><h3>Swap entire cuisine family by changing one constructor argument.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">VeganKitchen.java + TastingMenuPlanner.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">VeganKitchen</span> <span class="kw">implements</span> <span class="cl">KitchenFactory</span> {
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Starter</span>    <span class="fn">createStarter</span>()  { <span class="kw">return new</span> <span class="cl">HummusStarter</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">MainCourse</span> <span class="fn">createMain</span>()     { <span class="kw">return new</span> <span class="cl">BuddhaBowl</span>(); }
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">Dessert</span>    <span class="fn">createDessert</span>()  { <span class="kw">return new</span> <span class="cl">ChiaPudding</span>(); }
+}
+
+<span class="kw">public class</span> <span class="cl">TastingMenuPlanner</span> {
+
+    <span class="kw">private final</span> <span class="cl">KitchenFactory</span> kitchen;
+
+    <span class="cm">// Factory injected via constructor — never calls new ItalianKitchen() directly</span>
+    <span class="kw">public</span> <span class="fn">TastingMenuPlanner</span>(<span class="cl">KitchenFactory</span> kitchen) {
+        <span class="kw">this</span>.kitchen = kitchen;
+    }
+
+    <span class="kw">public void</span> <span class="fn">serve</span>() {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"\n=== Tasting Menu ==="</span>);
+        <span class="cl">Starter</span>    s = kitchen.<span class="fn">createStarter</span>();
+        <span class="cl">MainCourse</span> m = kitchen.<span class="fn">createMain</span>();
+        <span class="cl">Dessert</span>    d = kitchen.<span class="fn">createDessert</span>();
+
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Starter: "</span>   + s.<span class="fn">getName</span>() + <span class="st">" £"</span> + s.<span class="fn">getPrice</span>());
+        s.<span class="fn">serve</span>();
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Main:    "</span>   + m.<span class="fn">getName</span>() + <span class="st">" £"</span> + m.<span class="fn">getPrice</span>());
+        m.<span class="fn">serve</span>();
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"Dessert: "</span>   + d.<span class="fn">getName</span>() + <span class="st">" £"</span> + d.<span class="fn">getPrice</span>());
+        d.<span class="fn">serve</span>();
+
+        <span class="kw">double</span> total = s.<span class="fn">getPrice</span>() + m.<span class="fn">getPrice</span>() + d.<span class="fn">getPrice</span>();
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"Total:              £%.2f%n"</span>, total);
+    }
+}
+
+<span class="cm">// Proving family swap — change ONE argument:
+// new TastingMenuPlanner(new ItalianKitchen()).serve();
+//   → Bruschetta + Margherita + Tiramisu — all Italian ✓
+//
+// new TastingMenuPlanner(new JapaneseKitchen()).serve();
+//   → Miso Soup + Tonkotsu + Mochi — all Japanese ✓
+//
+// new TastingMenuPlanner(new VeganKitchen()).serve();
+//   → Hummus + Buddha Bowl + Chia — all Vegan ✓
+//
+// TastingMenuPlanner.java: ZERO EDITS across all three cases. ✓
+// This is Dependency Injection + Abstract Factory combined.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S9 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">Head Chef</span><span class="tag tag-rust">Solution 9 — Test with Mock Factory</span></div><h3>Factory Method makes the algorithm testable without real products.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">MockDish.java + MockRestaurant.java + RestaurantTest.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// MockDish — tracks calls, no real cooking</span>
+<span class="kw">public class</span> <span class="cl">MockDish</span> <span class="kw">extends</span> <span class="cl">Dish</span> {
+    <span class="kw">public boolean</span> prepareCalled = <span class="kw">false</span>;
+    <span class="kw">public boolean</span> plateCalled   = <span class="kw">false</span>;
+
+    <span class="kw">public</span> <span class="fn">MockDish</span>(<span class="cl">String</span> name) { <span class="kw">this</span>.name = name; <span class="kw">this</span>.price = <span class="nu">0</span>; }
+
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">prepare</span>() { prepareCalled = <span class="kw">true</span>; }
+    <span class="an">@Override</span> <span class="kw">public void</span> <span class="fn">plate</span>()   { plateCalled   = <span class="kw">true</span>; }
+}
+
+<span class="cm">// MockRestaurant — returns controlled mock dishes</span>
+<span class="kw">public class</span> <span class="cl">MockRestaurant</span> <span class="kw">extends</span> <span class="cl">Restaurant</span> {
+    <span class="kw">public</span> <span class="cl">MockDish</span> lastCreated;
+
+    <span class="an">@Override</span> <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getName</span>() { <span class="kw">return</span> <span class="st">"Mock Kitchen"</span>; }
+
+    <span class="an">@Override</span>
+    <span class="kw">protected</span> <span class="cl">Dish</span> <span class="fn">createDish</span>(<span class="cl">String</span> dishName) {
+        lastCreated = <span class="kw">new</span> <span class="cl">MockDish</span>(dishName);
+        <span class="kw">return</span> lastCreated;
+    }
+}
+
+<span class="cm">// JUnit 5 tests — testing the ALGORITHM, not the products</span>
+<span class="kw">class</span> <span class="cl">RestaurantTest</span> {
+
+    <span class="kw">private</span> <span class="cl">MockRestaurant</span> restaurant;
+
+    <span class="an">@BeforeEach</span>
+    <span class="kw">void</span> <span class="fn">setUp</span>() { restaurant = <span class="kw">new</span> <span class="cl">MockRestaurant</span>(); }
+
+    <span class="an">@Test</span>
+    <span class="kw">void</span> <span class="fn">orderDish_callsPrepare</span>() {
+        restaurant.<span class="fn">orderDish</span>(<span class="st">"pizza"</span>);
+        <span class="fn">assertTrue</span>(restaurant.lastCreated.prepareCalled);
+    }
+
+    <span class="an">@Test</span>
+    <span class="kw">void</span> <span class="fn">orderDish_callsPlate</span>() {
+        restaurant.<span class="fn">orderDish</span>(<span class="st">"pasta"</span>);
+        <span class="fn">assertTrue</span>(restaurant.lastCreated.plateCalled);
+    }
+
+    <span class="an">@Test</span>
+    <span class="kw">void</span> <span class="fn">orderDish_returnsDishWithCorrectName</span>() {
+        <span class="cl">Dish</span> result = restaurant.<span class="fn">orderDish</span>(<span class="st">"ramen"</span>);
+        <span class="fn">assertEquals</span>(<span class="st">"ramen"</span>, result.<span class="fn">getName</span>());
+    }
+}
+<span class="cm">// All three tests pass. No real Dish classes touched. No DB. No IO.
+// Restaurant.orderDish() template method fully tested in isolation. ✓
+// This is why Factory Method exists in testable OOP codebases.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S10 -->
+    <div class="challenge boss"><div class="challenge-meta"><span class="diff diff-boss">BOSS</span><span class="tag tag-purple">Solution 10 — JDBC Connection Factory</span></div><h3>You've been using all three Factory forms in every JDBC query.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">All three Factory forms mapped to real JDBC API</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// ═══ FORM 1: STATIC FACTORY ═══════════════════════════════
+// DriverManager.getConnection() is a Static Factory Method.
+// You pass a URL string; it resolves the correct Driver and creates a Connection.</span>
+<span class="cl">Connection</span> conn = <span class="cl">DriverManager</span>.<span class="fn">getConnection</span>(<span class="st">"jdbc:mysql://localhost/db"</span>, user, pass);
+<span class="cm">// ↑ Equivalent to our DishFactory.create("mysql", ...) ✓</span>
+
+<span class="cm">// ═══ FORM 2: FACTORY METHOD ════════════════════════════════
+// DataSource is an abstract Creator. HikariDataSource is a ConcreteCreator.
+// getConnection() is the factory method. The connection pool management
+// logic (template) stays in DataSource; HikariDataSource supplies real connections.</span>
+<span class="cl">DataSource</span> ds = <span class="kw">new</span> <span class="cl">HikariDataSource</span>(config); <span class="cm">// concrete creator</span>
+<span class="cl">Connection</span> c  = ds.<span class="fn">getConnection</span>();             <span class="cm">// factory method</span>
+<span class="cm">// ↑ Equivalent to our restaurant.createDish("pizza") ✓
+// Template = pool management logic in DataSource
+// Factory method = HikariDataSource.getConnection() creates real pooled connection</span>
+
+<span class="cm">// ═══ FORM 3: ABSTRACT FACTORY ══════════════════════════════
+// Connection creates Statement and PreparedStatement — a family of compatible objects.
+// MySQLConnection creates MySQL-compatible Statement/PreparedStatement.
+// PostgreSQLConnection creates Postgres-compatible ones.
+// You can't mix a MySQL Statement with a PostgreSQL Connection.</span>
+<span class="cl">Connection</span>         conn2 = ds.<span class="fn">getConnection</span>();        <span class="cm">// Abstract Factory</span>
+<span class="cl">Statement</span>          stmt  = conn2.<span class="fn">createStatement</span>();    <span class="cm">// createMain()</span>
+<span class="cl">PreparedStatement</span>  pstmt = conn2.<span class="fn">prepareStatement</span>(sql);<span class="cm">// createDish(name)</span>
+<span class="cl">CallableStatement</span>  cstmt = conn2.<span class="fn">prepareCall</span>(sql);     <span class="cm">// createStarter()</span>
+<span class="cm">// ↑ Equivalent to our KitchenFactory creating compatible Starter/Main/Dessert ✓
+//
+// Summary table:
+// OUR PATTERN               JDBC EQUIVALENT
+// ─────────────────────────────────────────────────────────────
+// DishFactory.create()      DriverManager.getConnection(url)
+// Restaurant (abstract)     javax.sql.DataSource
+// ItalianRestaurant         HikariDataSource / C3P0DataSource
+// KitchenFactory            java.sql.Connection
+// ItalianKitchen            MySQLConnection / PGConnection
+// Dish products             Statement / PreparedStatement / ResultSet
+//
+// You have been using the Factory Pattern every time you wrote JDBC code. ✓</span></code></pre>
+    </div>
+
+    <div class="callout callout-purple">
+      <div class="callout-title">Real-World Connections</div>
+      <p>
+        <strong style="color:var(--purple)">Spring Framework:</strong> <code>BeanFactory</code> is a Static Factory. <code>ApplicationContext</code> is a Factory Method creator — subclasses like <code>ClassPathXmlApplicationContext</code> and <code>AnnotationConfigApplicationContext</code> override <code>createBeanFactory()</code>. <code>@Configuration</code> classes with <code>@Bean</code> methods are Abstract Factories.<br><br>
+        <strong style="color:var(--purple)">Java standard library:</strong> <code>Calendar.getInstance()</code>, <code>NumberFormat.getInstance()</code>, <code>Collections.unmodifiableList()</code> — all static factory methods. <code>Iterator</code> returned by <code>Collection.iterator()</code> — factory method on the collection.<br><br>
+        <strong style="color:var(--purple)">Effective Java (Bloch):</strong> Item 1 is "Consider static factory methods instead of constructors." They have names (unlike constructors), can return subtypes, can cache instances, and don't require creating a new object each time. <code>Boolean.valueOf(true)</code> never creates a new object.<br><br>
+        <strong style="color:var(--purple)">Mockito / JUnit:</strong> <code>Mockito.mock(MyClass.class)</code> is a Static Factory that creates a proxy subclass at runtime. The entire testing infrastructure is built on Factory + Proxy patterns.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    event.target.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>

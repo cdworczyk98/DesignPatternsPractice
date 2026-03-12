@@ -1,8 +1,9 @@
-package Observer.WeatheStation;
+package Observer.WeatheStation.Simple;
 
 import java.util.*;
+import java.util.Observer;
 
-public class StatisticsDisplay implements Observer {
+public class StatisticsDisplay implements Observer.WeatheStation.Simple.Observer {
 
     Stack<Float> temperatures = new Stack<>();
     Stack<Float> humidities = new Stack<>();

@@ -1,6 +1,6 @@
-package Decorator.CoffeeShop.SizeUpgrade;
+package Decorator.Simple.SizeUpgrade;
 
-import Decorator.CoffeeShop.Beverages.Beverage;
+import Decorator.Simple.Beverages.Beverage;
 
 public abstract class SizeUpgradeDecorator extends Beverage {
 

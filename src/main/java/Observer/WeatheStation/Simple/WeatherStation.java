@@ -1,4 +1,4 @@
-package Observer.WeatheStation;
+package Observer.WeatheStation.Simple;
 
 import java.util.ArrayList;
 import java.util.List;

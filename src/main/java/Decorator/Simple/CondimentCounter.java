@@ -1,7 +1,7 @@
-package Decorator.CoffeeShop;
+package Decorator.Simple;
 
-import Decorator.CoffeeShop.Beverages.Beverage;
-import Decorator.CoffeeShop.Condiments.CondimentDecorator;
+import Decorator.Simple.Beverages.Beverage;
+import Decorator.Simple.Condiments.CondimentDecorator;
 
 public class CondimentCounter {
 

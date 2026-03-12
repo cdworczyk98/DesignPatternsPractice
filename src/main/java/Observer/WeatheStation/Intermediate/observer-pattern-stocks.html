@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Observer Pattern — Stock Market Alert System</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07090f;
+    --surface: #0d1117;
+    --surface2: #12161f;
+    --surface3: #171c28;
+    --border: #1e2433;
+    --border2: #252d3d;
+    --accent: #00d4aa;
+    --accent2: #4f8ef7;
+    --accent3: #f7604f;
+    --accent4: #f7c14f;
+    --accent5: #a78bfa;
+    --up: #26c97a;
+    --down: #ef4444;
+    --text: #e2e8f0;
+    --text-dim: #4a5568;
+    --text-mid: #8892a4;
+    --code-bg: #050709;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 10% 10%, rgba(79,142,247,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 90% 90%, rgba(0,212,170,0.04) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+
+  .container { max-width: 1000px; margin: 0 auto; padding: 0 28px 120px; position: relative; z-index: 1; }
+
+  /* ── Header ── */
+  header { padding: 64px 0 48px; border-bottom: 1px solid var(--border); margin-bottom: 44px; }
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    font-size: clamp(36px, 6vw, 68px);
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  h1 .accent { color: var(--accent); }
+  h1 .dim    { color: var(--text-dim); font-weight: 300; }
+
+  .header-meta {
+    margin-top: 20px;
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .meta-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border2);
+    color: var(--text-mid);
+  }
+  .meta-pill.hl { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 40px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tab-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 9px 16px;
+    border: none;
+    background: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    border-radius: 6px;
+    transition: all 0.18s;
+    flex-shrink: 0;
+  }
+  .tab-btn.active {
+    background: var(--surface3);
+    color: var(--accent);
+    border: 1px solid var(--border2);
+  }
+  .tab-btn:hover:not(.active) { color: var(--text-mid); background: var(--surface2); }
+
+  /* ── Panels ── */
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeUp 0.25s ease; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+  /* ── Typography ── */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+
+  h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.85;
+    color: var(--text-mid);
+    margin-bottom: 14px;
+  }
+
+  strong { color: var(--text); font-weight: 600; }
+  code { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 11px; }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 16px; }
+  @media (max-width: 680px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+  }
+
+  /* ── Stock ticker ── */
+  .ticker-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .ticker {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    min-width: 140px;
+    flex: 1;
+  }
+  .ticker-sym  { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .ticker-price{ font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--text); margin-bottom: 4px; }
+  .ticker-chg  { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+  .up   { color: var(--up); }
+  .down { color: var(--down); }
+
+  /* ── Tags ── */
+  .tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 6px;
+    margin-bottom: 8px;
+  }
+  .tag-teal   { background: rgba(0,212,170,0.1);  color: var(--accent);  border: 1px solid rgba(0,212,170,0.2); }
+  .tag-blue   { background: rgba(79,142,247,0.1); color: var(--accent2); border: 1px solid rgba(79,142,247,0.2); }
+  .tag-red    { background: rgba(247,96,79,0.1);  color: var(--accent3); border: 1px solid rgba(247,96,79,0.2); }
+  .tag-yellow { background: rgba(247,193,79,0.1); color: var(--accent4); border: 1px solid rgba(247,193,79,0.2); }
+  .tag-purple { background: rgba(167,139,250,0.1);color: var(--accent5); border: 1px solid rgba(167,139,250,0.2); }
+
+  /* ── Code blocks ── */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 12px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .code-header {
+    background: #0a0c12;
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+  .code-filename { font-size: 11px; color: var(--accent2); flex-shrink: 0; }
+  .code-lang     { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-dim); }
+  pre { padding: 18px 20px; overflow-x: auto; scrollbar-width: thin; }
+
+  /* Syntax */
+  .kw { color: #c084fc; } .cl { color: #7dd3fc; } .fn { color: #86efac; }
+  .st { color: #fde68a; } .cm { color: #1e2d1e; } .nu { color: #fb923c; }
+  .an { color: #f9a8d4; } .in { font-style: italic; color: #c084fc; }
+
+  /* ── Callouts ── */
+  .callout {
+    border-left: 2px solid;
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 12px 0;
+  }
+  .callout-teal   { border-color: var(--accent);  background: rgba(0,212,170,0.04); }
+  .callout-blue   { border-color: var(--accent2); background: rgba(79,142,247,0.04); }
+  .callout-red    { border-color: var(--accent3); background: rgba(247,96,79,0.04); }
+  .callout-yellow { border-color: var(--accent4); background: rgba(247,193,79,0.04); }
+  .callout-purple { border-color: var(--accent5); background: rgba(167,139,250,0.04); }
+  .callout-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .callout-teal   .callout-title { color: var(--accent); }
+  .callout-blue   .callout-title { color: var(--accent2); }
+  .callout-red    .callout-title { color: var(--accent3); }
+  .callout-yellow .callout-title { color: var(--accent4); }
+  .callout-purple .callout-title { color: var(--accent5); }
+  .callout p { margin: 0; }
+
+  hr.div { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+  /* ── Diagrams ── */
+  .diagram-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px;
+    margin: 14px 0;
+    overflow-x: auto;
+  }
+  .diagram-wrap svg { display: block; margin: 0 auto; }
+
+  /* ── Tiers ── */
+  .tier { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 32px; overflow: hidden; }
+  .tier-header { padding: 18px 24px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid var(--border); }
+  .tier-icon { font-size: 26px; }
+  .tier-title { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+  .tier-sub   { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .tier-body  { padding: 22px 24px; background: var(--surface); }
+
+  .tier-easy   .tier-header { background: rgba(38,201,122,0.05); }
+  .tier-easy   .tier-title  { color: var(--up); }
+  .tier-medium .tier-header { background: rgba(247,193,79,0.05); }
+  .tier-medium .tier-title  { color: var(--accent4); }
+  .tier-hard   .tier-header { background: rgba(247,96,79,0.05); }
+  .tier-hard   .tier-title  { color: var(--accent3); }
+
+  /* ── Challenges ── */
+  .challenge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .challenge::before {
+    content: '';
+    position: absolute; top: 0; left: 0; bottom: 0; width: 3px;
+    border-radius: 3px 0 0 3px;
+  }
+  .challenge.easy::before   { background: var(--up); }
+  .challenge.medium::before { background: var(--accent4); }
+  .challenge.hard::before   { background: var(--accent3); }
+  .challenge.boss::before   { background: var(--accent5); }
+  .challenge-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .diff {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .diff-easy   { background: rgba(38,201,122,0.12);  color: var(--up); }
+  .diff-medium { background: rgba(247,193,79,0.12);  color: var(--accent4); }
+  .diff-hard   { background: rgba(247,96,79,0.12);   color: var(--accent3); }
+  .diff-boss   { background: rgba(167,139,250,0.12); color: var(--accent5); }
+
+  /* Steps */
+  ol.steps { list-style: none; counter-reset: s; }
+  ol.steps li {
+    counter-increment: s;
+    display: flex; gap: 14px;
+    padding: 13px 0; border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--text-mid); line-height: 1.8;
+  }
+  ol.steps li:last-child { border-bottom: none; }
+  ol.steps li::before {
+    content: counter(s, decimal-leading-zero);
+    font-size: 10px; color: var(--accent);
+    min-width: 24px; padding-top: 2px; flex-shrink: 0;
+  }
+  ol.steps li strong { color: var(--text); display: block; margin-bottom: 4px; }
+
+  /* Alert feed */
+  .alert-feed {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 2.0;
+    margin-bottom: 14px;
+  }
+  .alert-line { display: flex; gap: 12px; align-items: baseline; }
+  .al-ts   { color: var(--text-dim); flex-shrink: 0; }
+  .al-sub  { color: var(--up); }
+  .al-warn { color: var(--accent4); }
+  .al-crit { color: var(--accent3); }
+  .al-info { color: var(--accent2); }
+  .al-sys  { color: var(--accent5); }
+
+  /* Variant comparison */
+  .variant-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  @media (max-width: 620px) { .variant-grid { grid-template-columns: 1fr; } }
+  .variant {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 18px;
+  }
+  .variant-title {
+    font-size: 14px; font-weight: 700; margin-bottom: 4px;
+    letter-spacing: -0.01em;
+  }
+  .variant-sub {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--text-dim); margin-bottom: 10px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="eyebrow">// design_patterns · java_workshop · v6</div>
+    <h1><span class="accent">Observer</span> <span class="dim">Pattern</span><br>Stock Market Alerts</h1>
+    <div class="header-meta">
+      <span class="meta-pill hl">Intermediate baseline</span>
+      <span class="meta-pill">GoF Behavioural</span>
+      <span class="meta-pill">Push + Pull variants</span>
+      <span class="meta-pill">10 challenges</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('baseline')">① Baseline</button>
+    <button class="tab-btn" onclick="switchTab('problem')">② The Problem</button>
+    <button class="tab-btn" onclick="switchTab('deep')">③ Deep Dive</button>
+    <button class="tab-btn" onclick="switchTab('refactor')">④ Refactored</button>
+    <button class="tab-btn" onclick="switchTab('challenges')">⑤ Challenges</button>
+    <button class="tab-btn" onclick="switchTab('solutions')">⑥ Solutions</button>
+  </nav>
+
+  <!-- ═══════════════════════════════════ PANEL 1 ═══ -->
+  <div id="panel-baseline" class="panel active">
+    <div class="section-label">// step_01</div>
+    <h2>The Baseline App</h2>
+    <p>A stock price feed. Prices update in real time. Three subscriber systems need to react: an <strong>AlertService</strong> (notify when price crosses a threshold), a <strong>Dashboard</strong> (redraw), and an <strong>AuditLogger</strong> (write every change to disk). Intermediate starting code — the update logic already exists, but wiring is direct and hardcoded.</p>
+
+    <div class="ticker-row">
+      <div class="ticker">
+        <div class="ticker-sym">AAPL</div>
+        <div class="ticker-price">$189.42</div>
+        <div class="ticker-chg up">▲ +2.14%</div>
+      </div>
+      <div class="ticker">
+        <div class="ticker-sym">TSLA</div>
+        <div class="ticker-price">$247.80</div>
+        <div class="ticker-chg down">▼ −1.32%</div>
+      </div>
+      <div class="ticker">
+        <div class="ticker-sym">NVDA</div>
+        <div class="ticker-price">$875.20</div>
+        <div class="ticker-chg up">▲ +4.87%</div>
+      </div>
+      <div class="ticker">
+        <div class="ticker-sym">AMZN</div>
+        <div class="ticker-price">$192.15</div>
+        <div class="ticker-chg down">▼ −0.55%</div>
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">StockFeed.java</span><span class="code-lang">Java — Baseline</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">StockFeed</span> {
+
+    <span class="kw">private</span> <span class="cl">String</span>  symbol;
+    <span class="kw">private double</span>  price;
+    <span class="kw">private double</span>  previousPrice;
+
+    <span class="cm">// Hard references to every subscriber — the core problem</span>
+    <span class="kw">private</span> <span class="cl">AlertService</span>  alertService  = <span class="kw">new</span> <span class="cl">AlertService</span>();
+    <span class="kw">private</span> <span class="cl">Dashboard</span>     dashboard     = <span class="kw">new</span> <span class="cl">Dashboard</span>();
+    <span class="kw">private</span> <span class="cl">AuditLogger</span>   auditLogger   = <span class="kw">new</span> <span class="cl">AuditLogger</span>();
+
+    <span class="kw">public</span> <span class="fn">StockFeed</span>(<span class="cl">String</span> symbol, <span class="kw">double</span> initialPrice) {
+        <span class="kw">this</span>.symbol        = symbol;
+        <span class="kw">this</span>.price         = initialPrice;
+        <span class="kw">this</span>.previousPrice = initialPrice;
+    }
+
+    <span class="kw">public void</span> <span class="fn">updatePrice</span>(<span class="kw">double</span> newPrice) {
+        previousPrice = price;
+        price         = newPrice;
+
+        <span class="cm">// Directly calling every subscriber — tightly coupled</span>
+        alertService.<span class="fn">checkAlerts</span>(symbol, price, previousPrice);
+        dashboard.<span class="fn">redraw</span>(symbol, price, previousPrice);
+        auditLogger.<span class="fn">log</span>(symbol, price, previousPrice);
+    }
+
+    <span class="kw">public double</span> <span class="fn">getPrice</span>()  { <span class="kw">return</span> price; }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getSymbol</span>() { <span class="kw">return</span> symbol; }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">AlertService.java / Dashboard.java / AuditLogger.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">AlertService</span> {
+    <span class="kw">public void</span> <span class="fn">checkAlerts</span>(<span class="cl">String</span> sym, <span class="kw">double</span> price, <span class="kw">double</span> prev) {
+        <span class="kw">if</span> (price > <span class="nu">200.0</span>)
+            <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[ALERT] "</span> + sym + <span class="st">" crossed $200!"</span>);
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">Dashboard</span> {
+    <span class="kw">public void</span> <span class="fn">redraw</span>(<span class="cl">String</span> sym, <span class="kw">double</span> price, <span class="kw">double</span> prev) {
+        <span class="kw">double</span> pct = ((price - prev) / prev) * <span class="nu">100</span>;
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"[DASH] %s $%.2f (%+.2f%%)%n"</span>, sym, price, pct);
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">AuditLogger</span> {
+    <span class="kw">public void</span> <span class="fn">log</span>(<span class="cl">String</span> sym, <span class="kw">double</span> price, <span class="kw">double</span> prev) {
+        <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[AUDIT] "</span> + sym + <span class="st">" "</span> + prev + <span class="st">" → "</span> + price);
+    }
+}</code></pre>
+    </div>
+
+    <div class="callout callout-yellow">
+      <div class="callout-title">Works — For Now</div>
+      <p>The update logic is solid. The problem is entirely in how <code>StockFeed</code> is <strong>connected</strong> to its subscribers. Every subscriber is hardwired in — adding a fourth means editing <code>StockFeed</code>. Click ② to see why this becomes unworkable fast.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ PANEL 2 ═══ -->
+  <div id="panel-problem" class="panel">
+    <div class="section-label">// step_02</div>
+    <h2>New Requirements That Break It</h2>
+    <p>The platform grows. A mobile push notification service, a risk engine, a tax reporting module, and a third-party analytics webhook all need price updates. Different clients need different feeds. Some only care about AAPL. Some want all symbols. Some need to subscribe dynamically at runtime.</p>
+
+    <div class="callout callout-red">
+      <div class="callout-title">New Requirements</div>
+      <p>① A <strong>MobileNotifier</strong> needs to fire push notifications on 5%+ moves. ② A <strong>RiskEngine</strong> computes portfolio exposure — needs all symbols, live. ③ A <strong>TaxReporter</strong> logs realised gains — only subscribe during tax season. ④ Subscribers must be able to <strong>register and unregister at runtime</strong> without restarting the feed.</p>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">❌ StockFeed.java breaking under new requirements</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">StockFeed</span> {
+
+    <span class="cm">// Growing list of hardwired subscribers — violates OCP</span>
+    <span class="kw">private</span> <span class="cl">AlertService</span>      alertService      = <span class="kw">new</span> <span class="cl">AlertService</span>();
+    <span class="kw">private</span> <span class="cl">Dashboard</span>         dashboard         = <span class="kw">new</span> <span class="cl">Dashboard</span>();
+    <span class="kw">private</span> <span class="cl">AuditLogger</span>       auditLogger       = <span class="kw">new</span> <span class="cl">AuditLogger</span>();
+    <span class="kw">private</span> <span class="cl">MobileNotifier</span>    mobileNotifier    = <span class="kw">new</span> <span class="cl">MobileNotifier</span>();
+    <span class="kw">private</span> <span class="cl">RiskEngine</span>        riskEngine        = <span class="kw">new</span> <span class="cl">RiskEngine</span>();
+    <span class="kw">private</span> <span class="cl">TaxReporter</span>       taxReporter       = <span class="kw">new</span> <span class="cl">TaxReporter</span>();
+    <span class="kw">private</span> <span class="cl">AnalyticsWebhook</span>  analyticsWebhook  = <span class="kw">new</span> <span class="cl">AnalyticsWebhook</span>();
+    <span class="cm">// ... and the next subscriber requires another field + another call</span>
+
+    <span class="kw">public void</span> <span class="fn">updatePrice</span>(<span class="kw">double</span> newPrice) {
+        previousPrice = price;
+        price         = newPrice;
+
+        alertService.<span class="fn">checkAlerts</span>(symbol, price, previousPrice);
+        dashboard.<span class="fn">redraw</span>(symbol, price, previousPrice);
+        auditLogger.<span class="fn">log</span>(symbol, price, previousPrice);
+        mobileNotifier.<span class="fn">notify</span>(symbol, price, previousPrice);   <span class="cm">// different method name!</span>
+        riskEngine.<span class="fn">recalculate</span>(symbol, price, previousPrice);  <span class="cm">// yet another</span>
+        taxReporter.<span class="fn">record</span>(symbol, price, previousPrice);      <span class="cm">// and another</span>
+        analyticsWebhook.<span class="fn">post</span>(symbol, price, previousPrice);   <span class="cm">// every subscriber</span>
+        <span class="cm">// requires editing StockFeed — it knows too much</span>
+    }
+}</code></pre>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Open/Closed Principle</h3>
+        <p>Every new subscriber requires editing <code>StockFeed</code>. A class that needs to change whenever a new consumer appears is not closed for modification.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Single Responsibility</h3>
+        <p><code>StockFeed</code> tracks prices <em>and</em> manages a list of consumers <em>and</em> knows their exact method names. That is three jobs, not one.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>No Runtime Flexibility</h3>
+        <p><code>TaxReporter</code> is always active even outside tax season. You can't subscribe or unsubscribe without recompiling. The system can't adapt to runtime conditions.</p>
+      </div>
+      <div class="card">
+        <span class="tag tag-red">Violation</span>
+        <h3>Tight Coupling</h3>
+        <p><code>StockFeed</code> knows about <code>MobileNotifier</code>, <code>RiskEngine</code>, <code>TaxReporter</code>… Testing any of them in isolation requires the entire graph to exist.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-teal">
+      <div class="callout-title">The Core Insight</div>
+      <p>The Subject (<code>StockFeed</code>) should not know <em>who</em> is listening. It should only know <em>that</em> someone might be, and publish a notification. Observers register themselves — the subject never imports them. Adding a new observer requires <strong>zero changes</strong> to the subject.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ PANEL 3 ═══ -->
+  <div id="panel-deep" class="panel">
+    <div class="section-label">// step_03</div>
+    <h2>Deep Dive</h2>
+    <p>The Observer Pattern has two participants and one relationship. But the details — push vs pull, weak references, event filtering, thread safety — are where real-world implementations live or die.</p>
+
+    <!-- Diagram 1 -->
+    <h3>Diagram 1 — Core Structure</h3>
+    <p>The Subject maintains a list of Observers behind an interface. It calls <code>notifyObservers()</code> on price change — never knowing concrete types. Observers register themselves; the Subject just iterates the list.</p>
+    <div class="diagram-wrap">
+      <svg width="640" height="230" viewBox="0 0 640 230" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="11">
+        <defs>
+          <marker id="obs-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#00d4aa"/>
+          </marker>
+          <marker id="obs-open" markerWidth="12" markerHeight="10" refX="0" refY="5" orient="auto">
+            <polygon points="0,0 12,5 0,10" fill="none" stroke="#4f8ef7" stroke-width="1.5"/>
+          </marker>
+        </defs>
+
+        <!-- Subject interface -->
+        <rect x="10" y="70" width="175" height="90" rx="6" fill="#0d1117" stroke="#4f8ef7" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="97" y="92" text-anchor="middle" fill="#4f8ef7" font-size="9" letter-spacing="0.12em">«interface»</text>
+        <text x="97" y="110" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">Subject</text>
+        <line x1="10" y1="118" x2="185" y2="118" stroke="#1e2433" stroke-width="1"/>
+        <text x="97" y="133" text-anchor="middle" fill="#4a5568" font-size="10">subscribe(Observer)</text>
+        <text x="97" y="149" text-anchor="middle" fill="#4a5568" font-size="10">unsubscribe(Observer)</text>
+
+        <!-- StockFeed concrete -->
+        <rect x="10" y="178" width="175" height="40" rx="6" fill="#0d1117" stroke="#1e2433"/>
+        <text x="97" y="203" text-anchor="middle" fill="#00d4aa" font-size="12" font-weight="600">StockFeed</text>
+        <!-- implements arrow -->
+        <line x1="97" y1="160" x2="97" y2="176" stroke="#4f8ef7" stroke-width="1.2" marker-end="url(#obs-open)"/>
+
+        <!-- Observer interface -->
+        <rect x="455" y="10" width="175" height="70" rx="6" fill="#0d1117" stroke="#4f8ef7" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="542" y="32" text-anchor="middle" fill="#4f8ef7" font-size="9" letter-spacing="0.12em">«interface»</text>
+        <text x="542" y="50" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="600">StockObserver</text>
+        <line x1="455" y1="58" x2="630" y2="58" stroke="#1e2433" stroke-width="1"/>
+        <text x="542" y="72" text-anchor="middle" fill="#4a5568" font-size="10">onPriceUpdate(event)</text>
+
+        <!-- Concrete observers -->
+        <rect x="358" y="110" width="130" height="34" rx="5" fill="#0d1117" stroke="#1e2433"/>
+        <text x="423" y="132" text-anchor="middle" fill="#00d4aa" font-size="11">AlertService</text>
+
+        <rect x="502" y="110" width="130" height="34" rx="5" fill="#0d1117" stroke="#1e2433"/>
+        <text x="567" y="132" text-anchor="middle" fill="#00d4aa" font-size="11">Dashboard</text>
+
+        <rect x="358" y="158" width="130" height="34" rx="5" fill="#0d1117" stroke="#1e2433"/>
+        <text x="423" y="180" text-anchor="middle" fill="#00d4aa" font-size="11">AuditLogger</text>
+
+        <rect x="502" y="158" width="130" height="34" rx="5" fill="#0d1117" stroke="#1e2433"/>
+        <text x="567" y="180" text-anchor="middle" fill="#00d4aa" font-size="11">RiskEngine</text>
+
+        <!-- Implements arrows (observers → interface) -->
+        <line x1="423" y1="110" x2="500" y2="80" stroke="#4f8ef7" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#obs-open)"/>
+        <line x1="567" y1="110" x2="567" y2="80" stroke="#4f8ef7" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#obs-open)"/>
+        <line x1="423" y1="158" x2="490" y2="85" stroke="#4f8ef7" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#obs-open)"/>
+        <line x1="567" y1="158" x2="580" y2="80" stroke="#4f8ef7" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#obs-open)"/>
+
+        <!-- Subject → Observer (notifies) -->
+        <line x1="185" y1="115" x2="354" y2="127" stroke="#00d4aa" stroke-width="1.5" marker-end="url(#obs-arr)"/>
+        <text x="270" y="112" text-anchor="middle" fill="#4a5568" font-size="9">notifies →</text>
+
+        <!-- observer list annotation -->
+        <rect x="190" y="95" width="158" height="28" rx="4" fill="#050709" stroke="#1e2433" stroke-dasharray="4,3"/>
+        <text x="269" y="114" text-anchor="middle" fill="#4a5568" font-size="10">List&lt;StockObserver&gt;</text>
+      </svg>
+    </div>
+
+    <!-- Diagram 2: Push vs Pull -->
+    <h3 style="margin-top:20px">Diagram 2 — Push vs Pull Model</h3>
+    <p>There are two ways to send data to observers. The choice has real trade-offs in coupling, flexibility, and performance.</p>
+    <div class="diagram-wrap">
+      <svg width="620" height="200" viewBox="0 0 620 200" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="11">
+        <defs>
+          <marker id="p-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#00d4aa"/>
+          </marker>
+          <marker id="p-arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#f7c14f"/>
+          </marker>
+        </defs>
+
+        <!-- PUSH side -->
+        <text x="155" y="16" text-anchor="middle" fill="#00d4aa" font-size="11" font-weight="600" letter-spacing="0.08em">PUSH MODEL</text>
+        <rect x="30" y="26" width="100" height="36" rx="5" fill="#0d1117" stroke="#00d4aa"/>
+        <text x="80" y="49" text-anchor="middle" fill="#00d4aa" font-size="11">StockFeed</text>
+        <line x1="130" y1="44" x2="180" y2="44" stroke="#00d4aa" stroke-width="1.5" marker-end="url(#p-arr)"/>
+        <rect x="182" y="26" width="130" height="36" rx="5" fill="#0d1117" stroke="#1e2433"/>
+        <text x="247" y="40" text-anchor="middle" fill="#e2e8f0" font-size="10">onPriceUpdate(</text>
+        <text x="247" y="55" text-anchor="middle" fill="#e2e8f0" font-size="10">  PriceEvent e)</text>
+        <text x="155" y="88" text-anchor="middle" fill="#4a5568" font-size="9">Subject sends all data in the call</text>
+        <text x="155" y="103" text-anchor="middle" fill="#00d4aa" font-size="9">+ Simple, no extra fetch</text>
+        <text x="155" y="118" text-anchor="middle" fill="#f7604f" font-size="9">− Observer gets data it may not need</text>
+        <text x="155" y="133" text-anchor="middle" fill="#f7604f" font-size="9">− Changes to event shape break all observers</text>
+
+        <!-- divider -->
+        <line x1="320" y1="20" x2="320" y2="185" stroke="#1e2433" stroke-width="1" stroke-dasharray="4,3"/>
+
+        <!-- PULL side -->
+        <text x="470" y="16" text-anchor="middle" fill="#f7c14f" font-size="11" font-weight="600" letter-spacing="0.08em">PULL MODEL</text>
+        <rect x="340" y="26" width="100" height="36" rx="5" fill="#0d1117" stroke="#f7c14f"/>
+        <text x="390" y="49" text-anchor="middle" fill="#f7c14f" font-size="11">StockFeed</text>
+        <line x1="440" y1="44" x2="490" y2="44" stroke="#f7c14f" stroke-width="1.5" marker-end="url(#p-arr2)"/>
+        <rect x="492" y="26" width="120" height="36" rx="5" fill="#0d1117" stroke="#1e2433"/>
+        <text x="552" y="40" text-anchor="middle" fill="#e2e8f0" font-size="10">onPriceUpdate(</text>
+        <text x="552" y="55" text-anchor="middle" fill="#e2e8f0" font-size="10">  Subject src)</text>
+        <!-- pull-back arrow -->
+        <path d="M492,62 Q440,90 440,44" fill="none" stroke="#f7c14f" stroke-width="1" stroke-dasharray="3,2" marker-end="url(#p-arr2)"/>
+        <text x="452" y="88" text-anchor="middle" fill="#f7c14f" font-size="9">src.getPrice() ←</text>
+        <text x="470" y="103" text-anchor="middle" fill="#4a5568" font-size="9">Observer fetches only what it needs</text>
+        <text x="470" y="118" text-anchor="middle" fill="#00d4aa" font-size="9">+ Observer controls what it reads</text>
+        <text x="470" y="133" text-anchor="middle" fill="#00d4aa" font-size="9">+ Adding fields to Subject is non-breaking</text>
+        <text x="470" y="148" text-anchor="middle" fill="#f7604f" font-size="9">− Extra coupling (observer knows Subject type)</text>
+      </svg>
+    </div>
+
+    <!-- Diagram 3: notification flow -->
+    <h3 style="margin-top:20px">Diagram 3 — Notification Flow</h3>
+    <p>When <code>updatePrice()</code> is called, the Subject iterates its observer list and calls <code>onPriceUpdate()</code> on each. From the Subject's perspective, it is calling one method on an interface — it never knows which concrete types are in the list.</p>
+    <div class="diagram-wrap">
+      <svg width="600" height="180" viewBox="0 0 600 180" xmlns="http://www.w3.org/2000/svg" font-family="JetBrains Mono, monospace" font-size="11">
+        <defs>
+          <marker id="f-arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#00d4aa"/>
+          </marker>
+        </defs>
+        <!-- Feed -->
+        <rect x="10" y="60" width="120" height="60" rx="5" fill="#0d1117" stroke="#00d4aa" stroke-width="1.5"/>
+        <text x="70" y="84" text-anchor="middle" fill="#00d4aa" font-size="11" font-weight="600">StockFeed</text>
+        <text x="70" y="100" text-anchor="middle" fill="#4a5568" font-size="10">updatePrice()</text>
+        <text x="70" y="115" text-anchor="middle" fill="#4a5568" font-size="9">→ notifyAll()</text>
+
+        <!-- Loop annotation -->
+        <rect x="145" y="42" width="148" height="96" rx="5" fill="#050709" stroke="#1e2433" stroke-dasharray="4,3"/>
+        <text x="218" y="58" text-anchor="middle" fill="#4a5568" font-size="9">for each observer:</text>
+        <text x="218" y="74" text-anchor="middle" fill="#8892a4" font-size="10">observer</text>
+        <text x="218" y="88" text-anchor="middle" fill="#8892a4" font-size="10">  .onPriceUpdate</text>
+        <text x="218" y="102" text-anchor="middle" fill="#8892a4" font-size="10">  (event)</text>
+        <text x="218" y="128" text-anchor="middle" fill="#4a5568" font-size="9">Subject sees only interface</text>
+        <line x1="130" y1="90" x2="143" y2="90" stroke="#00d4aa" stroke-width="1.5" marker-end="url(#f-arr)"/>
+
+        <!-- Concrete observers fan-out -->
+        <line x1="293" y1="68" x2="348" y2="48" stroke="#00d4aa" stroke-width="1.2" marker-end="url(#f-arr)"/>
+        <line x1="293" y1="84" x2="348" y2="84" stroke="#00d4aa" stroke-width="1.2" marker-end="url(#f-arr)"/>
+        <line x1="293" y1="100" x2="348" y2="120" stroke="#00d4aa" stroke-width="1.2" marker-end="url(#f-arr)"/>
+        <line x1="293" y1="116" x2="348" y2="152" stroke="#00d4aa" stroke-width="1.2" marker-end="url(#f-arr)"/>
+
+        <rect x="350" y="30" width="120" height="28" rx="4" fill="#0d1117" stroke="#1e2433"/>
+        <text x="410" y="49" text-anchor="middle" fill="#e2e8f0" font-size="10">AlertService</text>
+
+        <rect x="350" y="70" width="120" height="28" rx="4" fill="#0d1117" stroke="#1e2433"/>
+        <text x="410" y="89" text-anchor="middle" fill="#e2e8f0" font-size="10">Dashboard</text>
+
+        <rect x="350" y="108" width="120" height="28" rx="4" fill="#0d1117" stroke="#1e2433"/>
+        <text x="410" y="127" text-anchor="middle" fill="#e2e8f0" font-size="10">AuditLogger</text>
+
+        <rect x="350" y="146" width="120" height="28" rx="4" fill="#0d1117" stroke="#1e2433"/>
+        <text x="410" y="165" text-anchor="middle" fill="#e2e8f0" font-size="10">RiskEngine</text>
+
+        <!-- + any future observer annotation -->
+        <text x="490" y="165" fill="#4a5568" font-size="9">+ any future observer</text>
+        <text x="490" y="177" fill="#4a5568" font-size="9">without changing Feed</text>
+      </svg>
+    </div>
+
+    <hr class="div">
+    <div class="section-label">// push_vs_pull_and_event_objects</div>
+
+    <div class="variant-grid">
+      <div class="variant">
+        <div class="variant-title" style="color:var(--accent)">Push Model</div>
+        <div class="variant-sub">Subject pushes data in the call</div>
+        <p>The subject packages all relevant data into the method call: <code>onPriceUpdate(String symbol, double price, double prevPrice)</code>. Observers receive everything whether they need it or not.</p>
+        <span class="tag tag-teal">Simple</span>
+        <span class="tag tag-red">Less Flexible</span>
+      </div>
+      <div class="variant">
+        <div class="variant-title" style="color:var(--accent4)">Event Object</div>
+        <div class="variant-sub">Best of both worlds</div>
+        <p>Pass a <code>PriceEvent</code> object with all fields. Observers read only what they need. Adding new fields to the event is non-breaking — old observers simply ignore them.</p>
+        <span class="tag tag-yellow">Recommended</span>
+        <span class="tag tag-teal">Extensible</span>
+      </div>
+      <div class="variant">
+        <div class="variant-title" style="color:var(--accent2)">Pull Model</div>
+        <div class="variant-sub">Observer fetches what it needs</div>
+        <p>Subject passes itself: <code>onPriceUpdate(Subject src)</code>. Observer calls <code>src.getPrice()</code>. Maximum flexibility — observer decides what to read. Costs extra coupling to Subject type.</p>
+        <span class="tag tag-blue">Maximum Control</span>
+        <span class="tag tag-red">More Coupling</span>
+      </div>
+      <div class="variant">
+        <div class="variant-title" style="color:var(--accent5)">Typed Events</div>
+        <div class="variant-sub">Event bus / pub-sub variant</div>
+        <p>Multiple event types (<code>PriceEvent</code>, <code>TradingHaltEvent</code>, <code>CircuitBreakerEvent</code>). Observers subscribe to specific event types. This is how Spring's <code>ApplicationEventPublisher</code> works.</p>
+        <span class="tag tag-purple">Enterprise</span>
+        <span class="tag tag-blue">Decoupled</span>
+      </div>
+    </div>
+
+    <hr class="div">
+    <div class="section-label">// observer_pitfalls</div>
+    <ol class="steps">
+      <li><div><strong>Memory Leaks (the classic bug)</strong>If observers hold references to subjects, and subjects hold references to observers, neither can be garbage collected. Solution: use <code>WeakReference&lt;Observer&gt;</code> in the subject's list, or always call <code>unsubscribe()</code> when an observer is done.</div></li>
+      <li><div><strong>Update Order Dependence</strong>If Observer B depends on Observer A having processed the event first, you have a hidden coupling. Observers should be independent. If order matters, use a priority queue or chain-of-responsibility instead.</div></li>
+      <li><div><strong>Thread Safety</strong>If <code>updatePrice()</code> is called from a market-data thread while another thread is adding/removing observers, you will get <code>ConcurrentModificationException</code>. Solution: synchronise the observer list, or use <code>CopyOnWriteArrayList</code>.</div></li>
+      <li><div><strong>Cascading Updates</strong>Observer A's <code>update()</code> modifies the Subject, triggering another <code>notifyObservers()</code>, which calls A again, causing infinite recursion. Guard with an "updating" flag or make subjects immutable during notification.</div></li>
+      <li><div><strong>Too Many Fine-Grained Notifications</strong>If every tick fires a notification, observers may be overwhelmed. Debounce by throttling: only notify if price changed by &gt;0.1%, or at most once per 100ms.</div></li>
+    </ol>
+
+    <div class="callout callout-purple">
+      <div class="callout-title">The Dependency Inversion Principle — Again</div>
+      <p><code>StockFeed</code> used to depend on <code>AlertService</code>, <code>Dashboard</code>, etc. — concrete classes. After the refactor, it depends only on <code>StockObserver</code> — an abstraction. <strong>Both the subject and observers depend on the interface, not on each other.</strong> This is why adding a new observer requires zero changes to <code>StockFeed</code>.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ PANEL 4 ═══ -->
+  <div id="panel-refactor" class="panel">
+    <div class="section-label">// step_04</div>
+    <h2>Refactored — Full Observer System</h2>
+    <p>Same AlertService, Dashboard, and AuditLogger logic from the baseline — untouched. All new code is in the interfaces and the StockFeed's wiring.</p>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">PriceEvent.java — Event Object (recommended approach)</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">/**
+ * Immutable event object. Observers read only what they need.
+ * New fields can be added without breaking existing observers.
+ * Using a record (Java 16+) makes it immutable and concise.
+ */</span>
+<span class="kw">public record</span> <span class="cl">PriceEvent</span>(
+    <span class="cl">String</span> symbol,
+    <span class="kw">double</span> newPrice,
+    <span class="kw">double</span> previousPrice,
+    <span class="kw">long</span>   timestamp
+) {
+    <span class="cm">// Convenience method — commonly needed by multiple observers</span>
+    <span class="kw">public double</span> <span class="fn">percentChange</span>() {
+        <span class="kw">return</span> ((newPrice - previousPrice) / previousPrice) * <span class="nu">100.0</span>;
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">StockObserver.java — The Observer Interface</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">/**
+ * Every observer implements this single method.
+ * The @FunctionalInterface annotation means lambdas can be used
+ * as observers — no need to create a named class for simple cases.
+ */</span>
+<span class="an">@FunctionalInterface</span>
+<span class="kw">public interface</span> <span class="cl">StockObserver</span> {
+    <span class="kw">void</span> <span class="fn">onPriceUpdate</span>(<span class="cl">PriceEvent</span> event);
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">StockFeed.java — Refactored Subject</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.*;
+<span class="kw">import</span> java.util.concurrent.*;
+
+<span class="kw">public class</span> <span class="cl">StockFeed</span> {
+
+    <span class="kw">private final</span> <span class="cl">String</span>  symbol;
+    <span class="kw">private</span> <span class="kw">volatile double</span> price;
+    <span class="kw">private</span> <span class="kw">volatile double</span> previousPrice;
+
+    <span class="cm">// CopyOnWriteArrayList: thread-safe iteration without locking
+    // Safe to add/remove observers while notification is in progress</span>
+    <span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">StockObserver</span>&gt; observers =
+        <span class="kw">new</span> <span class="cl">CopyOnWriteArrayList</span>&lt;&gt;();
+
+    <span class="kw">public</span> <span class="fn">StockFeed</span>(<span class="cl">String</span> symbol, <span class="kw">double</span> initialPrice) {
+        <span class="kw">this</span>.symbol        = symbol;
+        <span class="kw">this</span>.price         = initialPrice;
+        <span class="kw">this</span>.previousPrice = initialPrice;
+    }
+
+    <span class="cm">// ── Observer management ──────────────────────────────</span>
+
+    <span class="kw">public void</span> <span class="fn">subscribe</span>(<span class="cl">StockObserver</span> observer) {
+        observers.<span class="fn">add</span>(observer);
+    }
+
+    <span class="kw">public void</span> <span class="fn">unsubscribe</span>(<span class="cl">StockObserver</span> observer) {
+        observers.<span class="fn">remove</span>(observer);
+    }
+
+    <span class="cm">// ── Price update ─────────────────────────────────────</span>
+
+    <span class="kw">public void</span> <span class="fn">updatePrice</span>(<span class="kw">double</span> newPrice) {
+        previousPrice = price;
+        price         = newPrice;
+        <span class="fn">notifyObservers</span>();
+    }
+
+    <span class="kw">private void</span> <span class="fn">notifyObservers</span>() {
+        <span class="cl">PriceEvent</span> event = <span class="kw">new</span> <span class="cl">PriceEvent</span>(
+            symbol, price, previousPrice, <span class="cl">System</span>.currentTimeMillis()
+        );
+        <span class="cm">// StockFeed never imports AlertService, Dashboard etc.
+        // It only knows about StockObserver (the interface).</span>
+        observers.<span class="fn">forEach</span>(o -> o.<span class="fn">onPriceUpdate</span>(event));
+    }
+
+    <span class="kw">public double</span> <span class="fn">getPrice</span>()       { <span class="kw">return</span> price; }
+    <span class="kw">public</span> <span class="cl">String</span> <span class="fn">getSymbol</span>()      { <span class="kw">return</span> symbol; }
+    <span class="kw">public int</span>    <span class="fn">observerCount</span>()  { <span class="kw">return</span> observers.<span class="fn">size</span>(); }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">AlertService.java / Dashboard.java / AuditLogger.java — Refactored</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="cm">// Each class implements StockObserver — one method, zero coupling to StockFeed</span>
+
+<span class="kw">public class</span> <span class="cl">AlertService</span> <span class="kw">implements</span> <span class="cl">StockObserver</span> {
+    <span class="kw">private final double</span> threshold;
+
+    <span class="kw">public</span> <span class="fn">AlertService</span>(<span class="kw">double</span> threshold) { <span class="kw">this</span>.threshold = threshold; }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">onPriceUpdate</span>(<span class="cl">PriceEvent</span> e) {
+        <span class="kw">if</span> (e.<span class="fn">newPrice</span>() > threshold)
+            <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"[ALERT] %s crossed $%.2f threshold!%n"</span>,
+                e.<span class="fn">symbol</span>(), threshold);
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">Dashboard</span> <span class="kw">implements</span> <span class="cl">StockObserver</span> {
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">onPriceUpdate</span>(<span class="cl">PriceEvent</span> e) {
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"[DASH] %-6s $%8.2f  %+.2f%%%n"</span>,
+            e.<span class="fn">symbol</span>(), e.<span class="fn">newPrice</span>(), e.<span class="fn">percentChange</span>());
+    }
+}
+
+<span class="kw">public class</span> <span class="cl">AuditLogger</span> <span class="kw">implements</span> <span class="cl">StockObserver</span> {
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">onPriceUpdate</span>(<span class="cl">PriceEvent</span> e) {
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"[AUDIT] %s  %.2f → %.2f  @%d%n"</span>,
+            e.<span class="fn">symbol</span>(), e.<span class="fn">previousPrice</span>(), e.<span class="fn">newPrice</span>(), e.<span class="fn">timestamp</span>());
+    }
+}</code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Main.java — Wiring and runtime subscribe/unsubscribe</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Main</span> {
+    <span class="kw">public static void</span> <span class="fn">main</span>(<span class="cl">String</span>[] args) {
+
+        <span class="cl">StockFeed</span> aapl = <span class="kw">new</span> <span class="cl">StockFeed</span>(<span class="st">"AAPL"</span>, <span class="nu">189.42</span>);
+
+        <span class="cl">AlertService</span> alert = <span class="kw">new</span> <span class="cl">AlertService</span>(<span class="nu">200.0</span>);
+        <span class="cl">Dashboard</span>    dash  = <span class="kw">new</span> <span class="cl">Dashboard</span>();
+        <span class="cl">AuditLogger</span>  audit = <span class="kw">new</span> <span class="cl">AuditLogger</span>();
+
+        aapl.<span class="fn">subscribe</span>(alert);
+        aapl.<span class="fn">subscribe</span>(dash);
+        aapl.<span class="fn">subscribe</span>(audit);
+
+        aapl.<span class="fn">updatePrice</span>(<span class="nu">195.00</span>); <span class="cm">// → [DASH] AAPL $195.00  +2.94%</span>
+        aapl.<span class="fn">updatePrice</span>(<span class="nu">201.50</span>); <span class="cm">// → [ALERT] AAPL crossed $200.00 threshold!</span>
+
+        <span class="cm">// Runtime unsubscribe — AuditLogger stops receiving updates</span>
+        aapl.<span class="fn">unsubscribe</span>(audit);
+        aapl.<span class="fn">updatePrice</span>(<span class="nu">198.00</span>); <span class="cm">// audit no longer logs this</span>
+
+        <span class="cm">// Lambda observer — no named class needed for simple cases</span>
+        aapl.<span class="fn">subscribe</span>(e ->
+            <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"[MOBILE] Big move: "</span> + e.<span class="fn">percentChange</span>())
+        );
+        aapl.<span class="fn">updatePrice</span>(<span class="nu">185.00</span>); <span class="cm">// Lambda fires</span>
+    }
+}</code></pre>
+    </div>
+
+    <div class="alert-feed">
+      <div class="alert-line"><span class="al-ts">[T+0]</span><span class="al-sub">[DASH]  AAPL  $195.00  +2.94%</span></div>
+      <div class="alert-line"><span class="al-ts">[T+0]</span><span class="al-info">[AUDIT] AAPL  189.42 → 195.00  @1710000001</span></div>
+      <div class="alert-line"><span class="al-ts">[T+1]</span><span class="al-crit">[ALERT] AAPL crossed $200.00 threshold!</span></div>
+      <div class="alert-line"><span class="al-ts">[T+1]</span><span class="al-sub">[DASH]  AAPL  $201.50  +3.33%</span></div>
+      <div class="alert-line"><span class="al-ts">[T+1]</span><span class="al-info">[AUDIT] AAPL  195.00 → 201.50  @1710000002</span></div>
+      <div class="alert-line"><span class="al-ts">[T+2]</span><span class="al-sub">[DASH]  AAPL  $198.00  −1.24%  &lt;-- audit unsubscribed</span></div>
+      <div class="alert-line"><span class="al-ts">[T+3]</span><span class="al-warn">[MOBILE] Big move: −6.45%</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ PANEL 5 ═══ -->
+  <div id="panel-challenges" class="panel">
+    <div class="section-label">// step_05</div>
+    <h2>Practice Challenges</h2>
+    <p>Ten challenges across three tiers. All build on the refactored system from panel ④.</p>
+
+    <!-- EASY -->
+    <div class="tier tier-easy">
+      <div class="tier-header">
+        <span class="tier-icon">📈</span>
+        <div>
+          <div class="tier-title">ANALYST TIER</div>
+          <div class="tier-sub">Challenges 1–3 · Core mechanics, first implementations</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Analyst</span><span class="tag tag-teal">Challenge 1</span></div>
+          <h3>Add a MobileNotifier Observer</h3>
+          <p>Create a <code>MobileNotifier</code> that implements <code>StockObserver</code>. It should fire a push notification (print to console) only when the absolute percentage change exceeds a configurable threshold (e.g. 3%). Accept the threshold in the constructor. Subscribe it to two different <code>StockFeed</code> instances and confirm it only fires on large moves.</p>
+          <div class="callout callout-teal" style="margin-top:10px"><div class="callout-title">Goal</div><p>Write your first observer from scratch. Notice how <code>StockFeed</code> requires zero changes — you just implement the interface and subscribe. This is Open/Closed in action.</p></div>
+        </div>
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Analyst</span><span class="tag tag-teal">Challenge 2</span></div>
+          <h3>Multi-Symbol Portfolio Feed</h3>
+          <p>Create a <code>Portfolio</code> class that subscribes the same <code>Dashboard</code> observer to multiple <code>StockFeed</code> instances (AAPL, TSLA, NVDA). When any feed updates, the dashboard shows the price. The <code>PriceEvent</code> already carries <code>symbol</code>, so the same observer instance handles all three cleanly.</p>
+          <div class="callout callout-teal" style="margin-top:10px"><div class="callout-title">Think About</div><p>A single observer instance subscribed to N subjects is perfectly valid. The <code>PriceEvent.symbol()</code> field tells it which feed fired. This is why the event object pattern beats the method-signature approach.</p></div>
+        </div>
+
+        <div class="challenge easy">
+          <div class="challenge-meta"><span class="diff diff-easy">Analyst</span><span class="tag tag-teal">Challenge 3</span></div>
+          <h3>One-Shot Observer (Auto-Unsubscribe)</h3>
+          <p>Create a <code>OneShotAlert</code> observer that fires exactly once — when the price crosses a target — then unsubscribes itself. The caller should receive a callback (pass a <code>Runnable</code> or <code>Consumer&lt;PriceEvent&gt;</code>) that fires on the trigger, then the observer removes itself from the feed so it never fires again.</p>
+          <div class="callout callout-teal" style="margin-top:10px"><div class="callout-title">Think About</div><p>The observer needs a reference to the <code>StockFeed</code> it is subscribed to in order to call <code>unsubscribe(this)</code>. How do you pass that reference in cleanly? Constructor injection is the right answer.</p></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MEDIUM -->
+    <div class="tier tier-medium">
+      <div class="tier-header">
+        <span class="tier-icon">📊</span>
+        <div>
+          <div class="tier-title">QUANT TIER</div>
+          <div class="tier-sub">Challenges 4–7 · Composition, filtering, thread safety</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Quant</span><span class="tag tag-yellow">Challenge 4</span></div>
+          <h3>Filtered Observer Decorator</h3>
+          <p>Create a <code>FilteredObserver</code> wrapper that takes any <code>StockObserver</code> and a <code>Predicate&lt;PriceEvent&gt;</code>. It only forwards events to the inner observer when the predicate returns true. Use it to give <code>AlertService</code> a "only fire between 09:30–16:00 market hours" filter without modifying <code>AlertService</code> at all.</p>
+          <div class="callout callout-yellow" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This is the Decorator pattern applied to observers — same structure you saw in the Command workshop. Notice how the same cross-pattern composition keeps appearing. <code>FilteredObserver</code> can wrap any observer and any predicate with zero changes to either.</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Quant</span><span class="tag tag-yellow">Challenge 5</span></div>
+          <h3>Moving Average Observer</h3>
+          <p>Create a <code>MovingAverageObserver</code> that maintains a sliding window of the last N prices (configurable, e.g. 5). Each time a new price arrives it updates the window and prints the current average. When the latest price crosses above or below the moving average, print a "CROSSOVER" signal.</p>
+          <div class="callout callout-yellow" style="margin-top:10px"><div class="callout-title">Think About</div><p>The observer holds its own internal state between notifications. This is perfectly valid — each observer manages its own logic independently. The Subject has no idea this state exists.</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Quant</span><span class="tag tag-yellow">Challenge 6</span></div>
+          <h3>Thread-Safe Observer List</h3>
+          <p>The baseline uses <code>CopyOnWriteArrayList</code>. For a high-frequency feed, that copy-on-every-write cost matters. Refactor to use <code>synchronized</code> blocks on the observer list with a snapshot approach: copy the list under lock, then iterate the snapshot outside the lock. Write a test that adds an observer from Thread A while Thread B is mid-notification, and verify no <code>ConcurrentModificationException</code>.</p>
+          <div class="callout callout-yellow" style="margin-top:10px"><div class="callout-title">Think About</div><p>What is the trade-off between <code>CopyOnWriteArrayList</code> (copy-on-write, ideal for read-heavy), <code>synchronized</code> snapshot (lower memory, more control), and <code>ConcurrentLinkedQueue</code> (lock-free)? Which wins in a market-data context where reads hugely outnumber writes?</p></div>
+        </div>
+
+        <div class="challenge medium">
+          <div class="challenge-meta"><span class="diff diff-medium">Quant</span><span class="tag tag-yellow">Challenge 7</span></div>
+          <h3>Event Type Routing — Typed Event Bus</h3>
+          <p>Add a second event type: <code>TradingHaltEvent(String symbol, String reason)</code>. Create a <code>MarketEventBus</code> that lets observers subscribe to specific event types: <code>bus.subscribe(TradingHaltEvent.class, myObserver)</code>. When an event is published, only observers registered for that type receive it. This mirrors Spring's <code>ApplicationEventPublisher</code>.</p>
+          <div class="callout callout-yellow" style="margin-top:10px"><div class="callout-title">Think About</div><p>Use <code>Map&lt;Class&lt;?&gt;, List&lt;Consumer&lt;?&gt;&gt;&gt;</code> as the internal registry. How do you handle the cast safely? What happens if someone publishes an event type no one is listening to?</p></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- HARD -->
+    <div class="tier tier-hard">
+      <div class="tier-header">
+        <span class="tier-icon">🏦</span>
+        <div>
+          <div class="tier-title">PORTFOLIO MANAGER TIER</div>
+          <div class="tier-sub">Challenges 8–10 · Architecture, async, cross-pattern</div>
+        </div>
+      </div>
+      <div class="tier-body">
+
+        <div class="challenge hard">
+          <div class="challenge-meta"><span class="diff diff-hard">PM</span><span class="tag tag-red">Challenge 8</span></div>
+          <h3>Async Observer with ExecutorService</h3>
+          <p>Some observers are slow (e.g. <code>AuditLogger</code> writes to disk, <code>RiskEngine</code> runs a heavy calculation). Making <code>StockFeed</code> wait for them slows the price feed. Wrap the notification loop so each observer is called on a thread pool: <code>executor.submit(() -&gt; observer.onPriceUpdate(event))</code>. Ensure the executor is properly shut down. Discuss the trade-off: what guarantees does synchronous notification give that async loses?</p>
+          <div class="callout callout-red" style="margin-top:10px"><div class="callout-title">Think About</div><p>With async delivery, two events could be processed out of order by the same observer. A slow observer might process event N before finishing event N-1. How do you guarantee ordering per observer if you need it?</p></div>
+        </div>
+
+        <div class="challenge hard">
+          <div class="challenge-meta"><span class="diff diff-hard">PM</span><span class="tag tag-red">Challenge 9</span></div>
+          <h3>Weak Reference Observer List</h3>
+          <p>Simulate a memory leak: create 1000 short-lived observer objects, subscribe them without ever unsubscribing, then lose all references to them. Verify with a heap dump that they cannot be garbage collected because <code>StockFeed</code> holds strong references. Fix by storing <code>WeakReference&lt;StockObserver&gt;</code> in the list. Re-run and confirm the observers are collected. Add cleanup to remove dead references before each notification.</p>
+          <div class="callout callout-red" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>This is one of the most common real-world Observer bugs. Android's <code>LiveData</code>, Java Swing listeners, and many event buses have all shipped with this bug at some point. Understanding it is a genuine senior-developer skill.</p></div>
+        </div>
+
+        <div class="challenge boss">
+          <div class="challenge-meta"><span class="diff diff-boss">BOSS</span><span class="tag tag-purple">Challenge 10</span></div>
+          <h3>New Domain — Reactive Stream (RxJava-style)</h3>
+          <p>Build a minimal <code>Observable&lt;T&gt;</code> class with <code>subscribe(Consumer&lt;T&gt;)</code>, <code>map(Function&lt;T,R&gt;)</code>, <code>filter(Predicate&lt;T&gt;)</code>, and <code>throttle(long millis)</code>. Chain them: <code>stockFeed.asObservable().filter(e -&gt; e.percentChange() &gt; 2.0).map(PriceEvent::symbol).subscribe(System.out::println)</code>. This is the skeleton of RxJava's <code>Observable</code> and Java 9's <code>Flow</code> API.</p>
+          <div class="callout callout-purple" style="margin-top:10px"><div class="callout-title">Why This Matters</div><p>RxJava, Project Reactor, and Java 9 Flow are all Observer Pattern at their core — with <code>map</code>/<code>filter</code>/<code>flatMap</code> operators added on top. Building this from scratch is the clearest possible demonstration that you understand the pattern at a deep level.</p></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ PANEL 6 ═══ -->
+  <div id="panel-solutions" class="panel">
+    <div class="section-label">// step_06</div>
+    <h2>Challenge Solutions</h2>
+    <p>Full solutions with design commentary. Always attempt first.</p>
+
+    <!-- S1 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Analyst</span><span class="tag tag-teal">Solution 1 — MobileNotifier</span></div><h3>Implement interface, subscribe, done. StockFeed unchanged.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">MobileNotifier.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">MobileNotifier</span> <span class="kw">implements</span> <span class="cl">StockObserver</span> {
+
+    <span class="kw">private final double</span> thresholdPct;
+
+    <span class="kw">public</span> <span class="fn">MobileNotifier</span>(<span class="kw">double</span> thresholdPct) {
+        <span class="kw">this</span>.thresholdPct = thresholdPct;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">onPriceUpdate</span>(<span class="cl">PriceEvent</span> e) {
+        <span class="kw">if</span> (<span class="cl">Math</span>.<span class="fn">abs</span>(e.<span class="fn">percentChange</span>()) >= thresholdPct) {
+            <span class="cl">System</span>.out.<span class="fn">printf</span>(
+                <span class="st">"[MOBILE] 🔔 %s moved %+.2f%% — push sent!%n"</span>,
+                e.<span class="fn">symbol</span>(), e.<span class="fn">percentChange</span>()
+            );
+        }
+    }
+}
+
+<span class="cm">// Wiring — StockFeed.java not touched at all:
+// StockFeed aapl = new StockFeed("AAPL", 189.42);
+// StockFeed tsla = new StockFeed("TSLA", 247.80);
+// MobileNotifier mobile = new MobileNotifier(3.0);
+// aapl.subscribe(mobile);
+// tsla.subscribe(mobile); // same observer instance, two feeds
+//
+// aapl.updatePrice(195.00); // +2.94% — no notification
+// aapl.updatePrice(205.00); // +5.13% — fires ✓
+// This is OCP: StockFeed is closed for modification,
+// open for extension via new observer implementations. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S2 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Analyst</span><span class="tag tag-teal">Solution 2 — Multi-Symbol Portfolio</span></div><h3>One observer, many subjects — symbol field disambiguates.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Portfolio.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">public class</span> <span class="cl">Portfolio</span> {
+
+    <span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">StockFeed</span>&gt; feeds = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+
+    <span class="kw">public void</span> <span class="fn">addStock</span>(<span class="cl">StockFeed</span> feed) {
+        feeds.<span class="fn">add</span>(feed);
+    }
+
+    <span class="cm">// Subscribe the same observer to every feed</span>
+    <span class="kw">public void</span> <span class="fn">subscribeAll</span>(<span class="cl">StockObserver</span> observer) {
+        feeds.<span class="fn">forEach</span>(f -> f.<span class="fn">subscribe</span>(observer));
+    }
+
+    <span class="kw">public void</span> <span class="fn">unsubscribeAll</span>(<span class="cl">StockObserver</span> observer) {
+        feeds.<span class="fn">forEach</span>(f -> f.<span class="fn">unsubscribe</span>(observer));
+    }
+}
+
+<span class="cm">// Usage:
+// Portfolio p = new Portfolio();
+// p.addStock(new StockFeed("AAPL", 189.42));
+// p.addStock(new StockFeed("TSLA", 247.80));
+// p.addStock(new StockFeed("NVDA", 875.20));
+//
+// Dashboard dash = new Dashboard();
+// p.subscribeAll(dash); // ONE observer, THREE feeds
+//
+// Each PriceEvent carries symbol — dashboard knows which feed fired.
+// Adding a 4th stock: p.addStock(new StockFeed("AMZN", 192.15));
+// Zero changes to Dashboard or StockFeed. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S3 -->
+    <div class="challenge easy"><div class="challenge-meta"><span class="diff diff-easy">Analyst</span><span class="tag tag-teal">Solution 3 — One-Shot Alert</span></div><h3>Observer that removes itself after firing once.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">OneShotAlert.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.function.*;
+
+<span class="kw">public class</span> <span class="cl">OneShotAlert</span> <span class="kw">implements</span> <span class="cl">StockObserver</span> {
+
+    <span class="kw">private final</span> <span class="cl">StockFeed</span>            feed;
+    <span class="kw">private final</span> <span class="cl">Predicate</span>&lt;<span class="cl">PriceEvent</span>&gt; trigger;
+    <span class="kw">private final</span> <span class="cl">Consumer</span>&lt;<span class="cl">PriceEvent</span>&gt;  callback;
+
+    <span class="kw">public</span> <span class="fn">OneShotAlert</span>(
+        <span class="cl">StockFeed</span>            feed,
+        <span class="cl">Predicate</span>&lt;<span class="cl">PriceEvent</span>&gt; trigger,
+        <span class="cl">Consumer</span>&lt;<span class="cl">PriceEvent</span>&gt;  callback
+    ) {
+        <span class="kw">this</span>.feed     = feed;
+        <span class="kw">this</span>.trigger  = trigger;
+        <span class="kw">this</span>.callback = callback;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">onPriceUpdate</span>(<span class="cl">PriceEvent</span> e) {
+        <span class="kw">if</span> (trigger.<span class="fn">test</span>(e)) {
+            callback.<span class="fn">accept</span>(e);
+            feed.<span class="fn">unsubscribe</span>(<span class="kw">this</span>); <span class="cm">// removes itself — fires exactly once</span>
+        }
+    }
+}
+
+<span class="cm">// Usage:
+// OneShotAlert breakout = new OneShotAlert(
+//   aapl,
+//   e -> e.newPrice() > 200.0,           // trigger condition
+//   e -> System.out.println("BREAKOUT!")  // callback
+// );
+// aapl.subscribe(breakout);
+//
+// aapl.updatePrice(195.0); // no trigger
+// aapl.updatePrice(201.0); // triggers → fires → unsubscribes itself ✓
+// aapl.updatePrice(205.0); // breakout no longer subscribed — silent ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S4 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Quant</span><span class="tag tag-yellow">Solution 4 — FilteredObserver</span></div><h3>Decorator pattern applied to observers.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">FilteredObserver.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.function.*;
+
+<span class="kw">public class</span> <span class="cl">FilteredObserver</span> <span class="kw">implements</span> <span class="cl">StockObserver</span> {
+
+    <span class="kw">private final</span> <span class="cl">StockObserver</span>        inner;
+    <span class="kw">private final</span> <span class="cl">Predicate</span>&lt;<span class="cl">PriceEvent</span>&gt; filter;
+
+    <span class="kw">public</span> <span class="fn">FilteredObserver</span>(<span class="cl">StockObserver</span> inner, <span class="cl">Predicate</span>&lt;<span class="cl">PriceEvent</span>&gt; filter) {
+        <span class="kw">this</span>.inner  = inner;
+        <span class="kw">this</span>.filter = filter;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">onPriceUpdate</span>(<span class="cl">PriceEvent</span> e) {
+        <span class="kw">if</span> (filter.<span class="fn">test</span>(e)) {
+            inner.<span class="fn">onPriceUpdate</span>(e); <span class="cm">// only forward if predicate passes</span>
+        }
+    }
+}
+
+<span class="cm">// Market-hours filter:
+// AlertService rawAlert = new AlertService(200.0);
+// StockObserver marketHoursAlert = new FilteredObserver(
+//   rawAlert,
+//   e -> {
+//     LocalTime now = LocalTime.now();
+//     return now.isAfter(LocalTime.of(9,30))
+//         && now.isBefore(LocalTime.of(16,0));
+//   }
+// );
+// aapl.subscribe(marketHoursAlert);
+//
+// AlertService never changed. ✓
+// FilteredObserver can wrap ANY observer with ANY predicate. ✓
+// Stack them: new FilteredObserver(new FilteredObserver(...), ...)</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S5 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Quant</span><span class="tag tag-yellow">Solution 5 — Moving Average</span></div><h3>Stateful observer — internal window, crossover signal.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">MovingAverageObserver.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.*;
+
+<span class="kw">public class</span> <span class="cl">MovingAverageObserver</span> <span class="kw">implements</span> <span class="cl">StockObserver</span> {
+
+    <span class="kw">private final int</span>          windowSize;
+    <span class="kw">private final</span> <span class="cl">Deque</span>&lt;<span class="cl">Double</span>&gt; window = <span class="kw">new</span> <span class="cl">ArrayDeque</span>&lt;&gt;();
+    <span class="kw">private double</span> prevAvg = <span class="nu">-1</span>;
+
+    <span class="kw">public</span> <span class="fn">MovingAverageObserver</span>(<span class="kw">int</span> windowSize) {
+        <span class="kw">this</span>.windowSize = windowSize;
+    }
+
+    <span class="an">@Override</span>
+    <span class="kw">public void</span> <span class="fn">onPriceUpdate</span>(<span class="cl">PriceEvent</span> e) {
+        window.<span class="fn">addLast</span>(e.<span class="fn">newPrice</span>());
+        <span class="kw">if</span> (window.<span class="fn">size</span>() > windowSize) window.<span class="fn">removeFirst</span>();
+
+        <span class="kw">double</span> avg = window.<span class="fn">stream</span>()
+            .<span class="fn">mapToDouble</span>(<span class="cl">Double</span>::<span class="fn">doubleValue</span>)
+            .<span class="fn">average</span>()
+            .<span class="fn">orElse</span>(<span class="nu">0</span>);
+
+        <span class="cl">System</span>.out.<span class="fn">printf</span>(<span class="st">"[MA%d] %s price=%.2f avg=%.2f%n"</span>,
+            windowSize, e.<span class="fn">symbol</span>(), e.<span class="fn">newPrice</span>(), avg);
+
+        <span class="cm">// Crossover signal</span>
+        <span class="kw">if</span> (prevAvg > <span class="nu">0</span>) {
+            <span class="kw">boolean</span> crossedAbove = e.<span class="fn">previousPrice</span>() < prevAvg && e.<span class="fn">newPrice</span>() >= avg;
+            <span class="kw">boolean</span> crossedBelow = e.<span class="fn">previousPrice</span>() > prevAvg && e.<span class="fn">newPrice</span>() <= avg;
+            <span class="kw">if</span> (crossedAbove) <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  ↑ CROSSOVER: price above MA"</span>);
+            <span class="kw">if</span> (crossedBelow) <span class="cl">System</span>.out.<span class="fn">println</span>(<span class="st">"  ↓ CROSSOVER: price below MA"</span>);
+        }
+        prevAvg = avg;
+    }
+}
+
+<span class="cm">// The Subject never knows this observer has internal state.
+// Each observer manages its own logic independently. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S6 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Quant</span><span class="tag tag-yellow">Solution 6 — Thread-Safe Observer List</span></div><h3>Snapshot under lock, iterate outside lock.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">StockFeed.java — synchronized snapshot approach</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">StockObserver</span>&gt; observers = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+<span class="kw">private final</span> <span class="cl">Object</span> lock = <span class="kw">new</span> <span class="cl">Object</span>();
+
+<span class="kw">public void</span> <span class="fn">subscribe</span>(<span class="cl">StockObserver</span> o) {
+    <span class="kw">synchronized</span> (lock) { observers.<span class="fn">add</span>(o); }
+}
+
+<span class="kw">public void</span> <span class="fn">unsubscribe</span>(<span class="cl">StockObserver</span> o) {
+    <span class="kw">synchronized</span> (lock) { observers.<span class="fn">remove</span>(o); }
+}
+
+<span class="kw">private void</span> <span class="fn">notifyObservers</span>() {
+    <span class="cl">List</span>&lt;<span class="cl">StockObserver</span>&gt; snapshot;
+    <span class="kw">synchronized</span> (lock) {
+        snapshot = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;(observers); <span class="cm">// copy under lock</span>
+    }
+    <span class="cm">// Iterate OUTSIDE the lock — observers can add/remove freely
+    // without deadlock, even if onPriceUpdate() calls unsubscribe()</span>
+    <span class="cl">PriceEvent</span> event = <span class="kw">new</span> <span class="cl">PriceEvent</span>(symbol, price, previousPrice,
+        <span class="cl">System</span>.currentTimeMillis());
+    snapshot.<span class="fn">forEach</span>(o -> o.<span class="fn">onPriceUpdate</span>(event));
+}
+
+<span class="cm">// Trade-offs:
+// CopyOnWriteArrayList: copy on EVERY add/remove (write-heavy = expensive)
+//   ideal when reads >> writes (read during notification vs write on subscribe)
+//
+// Synchronized snapshot: copy on EVERY notification (notification-heavy = expensive)
+//   ideal when subscribe/unsubscribe >> notifications
+//
+// For a market feed: notifications are very frequent, subscribe/unsubscribe rare
+//   → CopyOnWriteArrayList wins here
+//
+// For a UI event system: subscribe once, notify many times
+//   → CopyOnWriteArrayList also wins
+// The synchronized snapshot is better when notification rate is low.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S7 -->
+    <div class="challenge medium"><div class="challenge-meta"><span class="diff diff-medium">Quant</span><span class="tag tag-yellow">Solution 7 — Typed Event Bus</span></div><h3>Map of event type → list of consumers. Spring-style.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">MarketEventBus.java</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.*;
+<span class="kw">import</span> java.util.function.*;
+
+<span class="kw">public class</span> <span class="cl">MarketEventBus</span> {
+
+    <span class="kw">private final</span> <span class="cl">Map</span>&lt;<span class="cl">Class</span>&lt;?&gt;, <span class="cl">List</span>&lt;<span class="cl">Consumer</span>&lt;?&gt;&gt;&gt; registry = <span class="kw">new</span> <span class="cl">HashMap</span>&lt;&gt;();
+
+    <span class="kw">public</span> &lt;T&gt; <span class="kw">void</span> <span class="fn">subscribe</span>(<span class="cl">Class</span>&lt;T&gt; eventType, <span class="cl">Consumer</span>&lt;T&gt; handler) {
+        registry.<span class="fn">computeIfAbsent</span>(eventType, k -> <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;())
+                .<span class="fn">add</span>(handler);
+    }
+
+    <span class="an">@SuppressWarnings</span>(<span class="st">"unchecked"</span>)
+    <span class="kw">public</span> &lt;T&gt; <span class="kw">void</span> <span class="fn">publish</span>(T event) {
+        <span class="cl">List</span>&lt;<span class="cl">Consumer</span>&lt;?&gt;&gt; handlers = registry.<span class="fn">getOrDefault</span>(
+            event.<span class="fn">getClass</span>(), <span class="cl">Collections</span>.<span class="fn">emptyList</span>());
+        handlers.<span class="fn">forEach</span>(h -> ((<span class="cl">Consumer</span>&lt;T&gt;) h).<span class="fn">accept</span>(event));
+    }
+}
+
+<span class="cm">// record TradingHaltEvent(String symbol, String reason) {}
+
+// Usage:
+// MarketEventBus bus = new MarketEventBus();
+//
+// bus.subscribe(PriceEvent.class, e ->
+//     System.out.println("[PRICE] " + e.symbol() + " " + e.newPrice()));
+//
+// bus.subscribe(TradingHaltEvent.class, e ->
+//     System.out.println("[HALT] " + e.symbol() + ": " + e.reason()));
+//
+// bus.publish(new PriceEvent("AAPL", 201.5, 195.0, System.currentTimeMillis()));
+// → fires PriceEvent handlers only
+//
+// bus.publish(new TradingHaltEvent("GME", "circuit breaker triggered"));
+// → fires TradingHaltEvent handlers only
+//
+// This is Spring's ApplicationEventPublisher at its core. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S8 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">PM</span><span class="tag tag-red">Solution 8 — Async Observer</span></div><h3>Non-blocking notification — feed doesn't wait for slow observers.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">StockFeed.java — async notification</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">private final</span> <span class="cl">ExecutorService</span> executor =
+    <span class="cl">Executors</span>.<span class="fn">newCachedThreadPool</span>();
+
+<span class="kw">private void</span> <span class="fn">notifyObserversAsync</span>() {
+    <span class="cl">PriceEvent</span> event = <span class="kw">new</span> <span class="cl">PriceEvent</span>(
+        symbol, price, previousPrice, <span class="cl">System</span>.currentTimeMillis());
+
+    observers.<span class="fn">forEach</span>(o ->
+        executor.<span class="fn">submit</span>(() -> {
+            <span class="kw">try</span> {
+                o.<span class="fn">onPriceUpdate</span>(event);
+            } <span class="kw">catch</span> (<span class="cl">Exception</span> ex) {
+                <span class="cl">System</span>.err.<span class="fn">println</span>(<span class="st">"Observer error: "</span> + ex.<span class="fn">getMessage</span>());
+            }
+        })
+    );
+}
+
+<span class="kw">public void</span> <span class="fn">shutdown</span>() {
+    executor.<span class="fn">shutdown</span>();
+    <span class="kw">try</span> { executor.<span class="fn">awaitTermination</span>(<span class="nu">5</span>, <span class="cl">TimeUnit</span>.SECONDS); }
+    <span class="kw">catch</span> (<span class="cl">InterruptedException</span> e) { <span class="cl">Thread</span>.<span class="fn">currentThread</span>().<span class="fn">interrupt</span>(); }
+}
+
+<span class="cm">// Trade-offs of async delivery:
+//   SYNC: Simple, ordered, errors propagate to caller, easy to test
+//     → Good for: UI events, in-process systems, low-frequency updates
+//   ASYNC: Non-blocking, fast feed, fault-isolated observers
+//     → Good for: market data feeds, IO-bound observers, high-frequency updates
+//
+// What async loses:
+//   - Ordering guarantee: event N-1 may finish after event N
+//   - Error visibility: observer exceptions don't surface to the caller
+//   - "Happened-before" guarantees: harder to reason about state
+//
+// For ordering: use a single-thread executor per observer:
+// Map<StockObserver, ExecutorService> perObserverExecutors;
+// Each observer gets its own sequential queue. ✓</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S9 -->
+    <div class="challenge hard"><div class="challenge-meta"><span class="diff diff-hard">PM</span><span class="tag tag-red">Solution 9 — Weak Reference Observer List</span></div><h3>Prevent memory leaks — collect dead observers automatically.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">StockFeed.java — weak reference list</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.lang.ref.*;
+<span class="kw">import</span> java.util.*;
+
+<span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">WeakReference</span>&lt;<span class="cl">StockObserver</span>&gt;&gt; observers =
+    <span class="kw">new</span> <span class="cl">CopyOnWriteArrayList</span>&lt;&gt;();
+
+<span class="kw">public void</span> <span class="fn">subscribe</span>(<span class="cl">StockObserver</span> o) {
+    observers.<span class="fn">add</span>(<span class="kw">new</span> <span class="cl">WeakReference</span>&lt;&gt;(o));
+}
+
+<span class="kw">private void</span> <span class="fn">notifyObservers</span>() {
+    <span class="cl">PriceEvent</span> event = <span class="kw">new</span> <span class="cl">PriceEvent</span>(
+        symbol, price, previousPrice, <span class="cl">System</span>.currentTimeMillis());
+
+    <span class="kw">var</span> dead = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;<span class="cl">WeakReference</span>&lt;<span class="cl">StockObserver</span>&gt;&gt;();
+
+    <span class="kw">for</span> (<span class="kw">var</span> ref : observers) {
+        <span class="cl">StockObserver</span> o = ref.<span class="fn">get</span>(); <span class="cm">// null if GC'd</span>
+        <span class="kw">if</span> (o != <span class="kw">null</span>) {
+            o.<span class="fn">onPriceUpdate</span>(event);
+        } <span class="kw">else</span> {
+            dead.<span class="fn">add</span>(ref); <span class="cm">// mark stale reference for removal</span>
+        }
+    }
+    observers.<span class="fn">removeAll</span>(dead); <span class="cm">// purge collected observers</span>
+}
+
+<span class="cm">// Demonstration:
+// for (int i = 0; i < 1000; i++) {
+//   StockObserver o = e -> {}; // anonymous, no strong reference kept
+//   feed.subscribe(o);
+// }
+// System.gc(); // suggest GC
+// // With strong refs: 1000 observers leak ✗
+// // With WeakReference: GC can collect all 1000 ✓
+//
+// Caveat: lambda observers are ALSO garbage collected unless you
+// keep a strong reference somewhere. That's usually what you want
+// for short-lived objects, but be careful with long-lived observers.
+// Always keep a reference to observers you need to stay alive.</span></code></pre>
+    </div>
+
+    <hr class="div">
+
+    <!-- S10 -->
+    <div class="challenge boss"><div class="challenge-meta"><span class="diff diff-boss">BOSS</span><span class="tag tag-purple">Solution 10 — Reactive Observable</span></div><h3>RxJava skeleton: filter, map, throttle — all built on Observer.</h3></div>
+    <div class="code-block">
+      <div class="code-header"><span class="code-filename">Observable.java — minimal reactive stream</span><span class="code-lang">Java</span></div>
+      <pre><code><span class="kw">import</span> java.util.*;
+<span class="kw">import</span> java.util.function.*;
+
+<span class="kw">public class</span> <span class="cl">Observable</span>&lt;T&gt; {
+
+    <span class="kw">private final</span> <span class="cl">List</span>&lt;<span class="cl">Consumer</span>&lt;T&gt;&gt; subscribers = <span class="kw">new</span> <span class="cl">ArrayList</span>&lt;&gt;();
+
+    <span class="kw">public void</span> <span class="fn">subscribe</span>(<span class="cl">Consumer</span>&lt;T&gt; subscriber) {
+        subscribers.<span class="fn">add</span>(subscriber);
+    }
+
+    <span class="kw">public void</span> <span class="fn">emit</span>(T value) {
+        subscribers.<span class="fn">forEach</span>(s -> s.<span class="fn">accept</span>(value));
+    }
+
+    <span class="cm">// map: transform each item — returns NEW Observable of type R</span>
+    <span class="kw">public</span> &lt;R&gt; <span class="cl">Observable</span>&lt;R&gt; <span class="fn">map</span>(<span class="cl">Function</span>&lt;T, R&gt; mapper) {
+        <span class="cl">Observable</span>&lt;R&gt; downstream = <span class="kw">new</span> <span class="cl">Observable</span>&lt;&gt;();
+        <span class="kw">this</span>.<span class="fn">subscribe</span>(value -> downstream.<span class="fn">emit</span>(mapper.<span class="fn">apply</span>(value)));
+        <span class="kw">return</span> downstream;
+    }
+
+    <span class="cm">// filter: only forward values that pass the predicate</span>
+    <span class="kw">public</span> <span class="cl">Observable</span>&lt;T&gt; <span class="fn">filter</span>(<span class="cl">Predicate</span>&lt;T&gt; predicate) {
+        <span class="cl">Observable</span>&lt;T&gt; downstream = <span class="kw">new</span> <span class="cl">Observable</span>&lt;&gt;();
+        <span class="kw">this</span>.<span class="fn">subscribe</span>(value -> {
+            <span class="kw">if</span> (predicate.<span class="fn">test</span>(value)) downstream.<span class="fn">emit</span>(value);
+        });
+        <span class="kw">return</span> downstream;
+    }
+
+    <span class="cm">// throttle: only forward if at least 'millis' have passed since last emit</span>
+    <span class="kw">public</span> <span class="cl">Observable</span>&lt;T&gt; <span class="fn">throttle</span>(<span class="kw">long</span> millis) {
+        <span class="cl">Observable</span>&lt;T&gt; downstream = <span class="kw">new</span> <span class="cl">Observable</span>&lt;&gt;();
+        <span class="kw">long</span>[] lastEmit = { <span class="nu">0L</span> };
+        <span class="kw">this</span>.<span class="fn">subscribe</span>(value -> {
+            <span class="kw">long</span> now = <span class="cl">System</span>.currentTimeMillis();
+            <span class="kw">if</span> (now - lastEmit[<span class="nu">0</span>] >= millis) {
+                lastEmit[<span class="nu">0</span>] = now;
+                downstream.<span class="fn">emit</span>(value);
+            }
+        });
+        <span class="kw">return</span> downstream;
+    }
+}
+
+<span class="cm">// Wiring StockFeed to Observable:
+// Observable&lt;PriceEvent&gt; feed = new Observable&lt;&gt;();
+// // In StockFeed.notifyObservers(): feed.emit(event);
+//
+// Reactive chain:
+// feed
+//   .filter(e -> Math.abs(e.percentChange()) > 2.0)
+//   .throttle(500)
+//   .map(PriceEvent::symbol)
+//   .subscribe(sym -> System.out.println("Big move: " + sym));
+//
+// This is RxJava's Observable / Java 9 Flow.Publisher at its core.
+// Real RxJava adds: flatMap, error handling, backpressure, schedulers.
+// All of it is Observer Pattern with operators chained as linked Observables. ✓</span></code></pre>
+    </div>
+
+    <div class="callout callout-purple">
+      <div class="callout-title">Real-World Connections</div>
+      <p>
+        <strong style="color:var(--accent5)">Java / Spring:</strong> <code>ApplicationEventPublisher</code> is a typed event bus (Solution 7). Spring's <code>@EventListener</code> annotation registers observers automatically via reflection.<br><br>
+        <strong style="color:var(--accent5)">RxJava / Project Reactor:</strong> Entire reactive programming model is Observer Pattern + operators. <code>Observable</code>, <code>Flux</code>, <code>Mono</code> are all Subjects. Subscribers are Observers. <code>map</code>/<code>filter</code>/<code>flatMap</code> are chained Observables (Solution 10).<br><br>
+        <strong style="color:var(--accent5)">Java 9 Flow API:</strong> <code>Flow.Publisher</code> = Subject. <code>Flow.Subscriber</code> = Observer. <code>Flow.Subscription</code> adds backpressure — the observer tells the subject how many items it can handle. This solves the "too many notifications" pitfall.<br><br>
+        <strong style="color:var(--accent5)">Android LiveData / StateFlow:</strong> Lifecycle-aware observers. Automatically unsubscribe when the UI component is destroyed — solving the memory leak problem (Solution 9) at the framework level.<br><br>
+        <strong style="color:var(--accent5)">Bloomberg / Reuters Market Data:</strong> Real financial market data infrastructure runs on Observer at massive scale. TIBCO Rendezvous, Solace, and Kafka are all distributed Observer systems where feeds are topics and subscribers are consumer groups.
+      </p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    event.target.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
