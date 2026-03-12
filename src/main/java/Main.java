@@ -2,8 +2,10 @@ import Decorator.CoffeeShop.Beverages.Beverage;
 import Decorator.CoffeeShop.Beverages.DarkRoast;
 import Decorator.CoffeeShop.Beverages.Espresso;
 import Decorator.CoffeeShop.Beverages.HouseBlend;
+import Decorator.CoffeeShop.CondimentCounter;
 import Decorator.CoffeeShop.Condiments.Milk;
 import Decorator.CoffeeShop.Condiments.Mocha;
+import Decorator.CoffeeShop.Pointable;
 import Decorator.CoffeeShop.SizeUpgrade.SmallSize;
 import Observer.WeatheStation.PhoneDisplay;
 import Observer.WeatheStation.StatisticsDisplay;
@@ -25,19 +27,21 @@ public class Main {
     public static void executeCoffeeShop() {
 
         Beverage b1 = new Espresso();
+        Beverage b2 = new Milk(new SmallSize(new DarkRoast()));
+        Beverage b3 = new Pointable(new Mocha(new Mocha(new Milk(new SmallSize(new DarkRoast())))));
+        Beverage b4 = new SmallSize(new Milk(new DarkRoast()));
 
-        Beverage b2 = new SmallSize(new Milk(new DarkRoast()));
-        Beverage b21 = new Milk(new SmallSize(new DarkRoast()));
-        Beverage b22 = new SmallSize(new Milk(new DarkRoast()));
-
-        Beverage b3 = new HouseBlend();
+        Beverage b5 = new HouseBlend();
         b3 = new Mocha(b3);
         b3 = new Milk(b3);
 
+        System.out.println(CondimentCounter.countCondiment(b2, Milk.class));
+
         printBev(b1);
         printBev(b2);
-        printBev(b21);
         printBev(b3);
+        printBev(b4);
+        printBev(b5);
     }
 
     private static void printBev(Beverage b) {
